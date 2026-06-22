@@ -47,7 +47,9 @@ def call_openai_api(sys_prompt, contents) -> Optional[str]:
     while True:  # Keep trying indefinitely for rate limits
         try:
             completion = client.chat.completions.create(
-                model="gpt-4o-2024-11-20",  # model = "deployment_name"
+                # model="gpt-4o-2024-11-20", 
+                model="gemma3:27b",  # model = "deployment_name"
+                 # model = "deployment_name"
                 messages=message_text,
                 temperature=0.7,
                 max_tokens=4096,

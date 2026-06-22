@@ -2,6 +2,6 @@
 INVALID_SCENE_ID = []
 
 # about chatgpt api
-END_POINT = ""
-OPENAI_KEY = ""
+END_POINT = "http://localhost:11435/v1"
+OPENAI_KEY = "ollama"
 

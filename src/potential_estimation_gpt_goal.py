@@ -103,7 +103,8 @@ def get_potential_estimation(metadata, image) -> Optional[str]:
     while True:  # Keep trying indefinitely for rate limits
         try:
             completion = client.chat.completions.create(
-                model="gpt-4o-2024-11-20",
+                # model="gpt-4o-2024-11-20",
+                model="gemma3:27b",
                 messages=message_text,
                 temperature=0.7,
                 max_tokens=4096,
