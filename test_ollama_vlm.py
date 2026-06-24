@@ -19,7 +19,6 @@ RED_PNG_BASE64 = (
     "AAAADUlEQVR42mP8z8BQDwAFgwJ/lrWf9wAAAABJRU5ErkJggg=="
 )
 
-
 def request_json(url, payload, timeout):
     req = urllib.request.Request(
         url,
