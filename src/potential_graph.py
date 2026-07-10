@@ -74,6 +74,9 @@ class PotentialGraph:
         # Tracking
         self.current_step = 0
         self.update_history = []  # Track updates for analysis
+        # Direct VLM-derived evidence for each frontier endpoint. Unlike the
+        # grid nodes, these values preserve the score attached to a candidate.
+        self.frontier_predictions: Dict[Tuple[int, int], Dict] = {}
         
         logging.info(f"Initialized PotentialGraph with {len(self.nodes)} nodes "
                     f"({self.grid_width}x{self.grid_height} grid)")
@@ -193,8 +196,19 @@ class PotentialGraph:
             'updated_nodes': len(updated_nodes)
         }
         self.update_history.append(update_info)
+        frontier_key = tuple(np.asarray(frontier.position, dtype=int).tolist())
+        self.frontier_predictions[frontier_key] = {
+            'scores': {key: float(value) for key, value in potential_scores.items()},
+            'step': self.current_step,
+        }
         
         logging.debug(f"Updated {len(updated_nodes)} nodes from frontier at {frontier_pos_2d} with scores {potential_scores}")
+        return potential_scores
+
+    def get_frontier_prediction(self, frontier_position: np.ndarray) -> Optional[Dict]:
+        """Return the direct prediction attached to a frontier endpoint."""
+        key = tuple(np.asarray(frontier_position, dtype=int).tolist())
+        return self.frontier_predictions.get(key)
     
     def _parse_potential_text(self, potential_text: str) -> Dict[str, float]:
         """Parse the GPT potential estimation text to extract numerical scores."""
@@ -469,6 +483,7 @@ class PotentialGraph:
             'nodes': self.nodes,
             'current_step': self.current_step,
             'update_history': self.update_history,
+            'frontier_predictions': self.frontier_predictions,
             'config': {
                 'vol_bounds': self.vol_bounds,
                 'voxel_size': self.voxel_size,
@@ -491,6 +506,7 @@ class PotentialGraph:
         self.nodes = state['nodes']
         self.current_step = state['current_step']
         self.update_history = state['update_history']
+        self.frontier_predictions = state.get('frontier_predictions', {})
         
         logging.info(f"Loaded potential graph state from {filepath}")
     

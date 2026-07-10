@@ -22,6 +22,23 @@ results/exp_eval_goatbench/<scene_id>_ep_<episode_id>/
 
 `global_step` 是全 episode 的导航决策序号；`subtask_id` 是当前 GOAT-Bench 子任务编号。一次决策可以融合多个 RGB-D 观察，因此一张 BEV 不等于一张相机帧。
 
+## Frontier 评分高斯图
+
+完成当前 step 的 frontier 评分后，系统还会保存：
+
+```text
+potential_graph/gaussian_bev/<global_step>_<subtask_id>_gaussian_bev.png
+```
+
+它以同一张 SCOPE BEV 为底图，并只在可通行区域叠加候选 frontier 的高斯场：
+
+- 白色圆点 `F<i>`：候选 frontier/action endpoint。
+- 高斯强度 `w`：由预测的未来证据潜力（overall potential、semantic richness、explorability）与当前子任务 goal relevance 相乘得到。
+- 高斯宽度 `σ`：当前 VLM 没有提供校准的不确定性，因此采用显式代理；预测证据越低、各诊断项分歧越大，`σ` 越宽。
+- 颜色越亮：该位置附近累积的加权未来证据越高。
+
+这张图用于解释评分分布，不会参与或替代当前的 VLM 选择策略。
+
 ## 两种 BEV 对照
 
 `visualization/` 内保存相同步号、同一子任务的一对图：

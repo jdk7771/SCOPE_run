@@ -101,6 +101,132 @@ def _draw_trajectory(ax, trajectory_voxels, scale, arrow_stride):
     ax.scatter(xy[-1, 0], xy[-1, 1], color="#e31a1c", edgecolors="white", s=52, zorder=10)
 
 
+def _build_planner_bev(planner, display_height):
+    """Build the same 2D state map used by TSDFPlanner.agent_step()."""
+    obstacle = planner._obstacle_vol_cpu
+    if obstacle is None:
+        obstacle = np.zeros_like(planner._tsdf_vol_cpu, dtype=bool)
+
+    height_index = int(display_height / planner._voxel_size) + planner.min_height_voxel
+    height_index = int(np.clip(height_index, 0, planner._tsdf_vol_cpu.shape[2] - 1))
+    unoccupied = np.logical_and(
+        planner._tsdf_vol_cpu[:, :, height_index] > 0,
+        planner._tsdf_vol_cpu[:, :, 0] < 0,
+    )
+    explored = np.any(planner._explore_vol_cpu > 0, axis=2)
+    obstacle_slice = obstacle[:, :, height_index]
+    kernel_size = max(1, int(0.3 / planner._voxel_size))
+    obstacle_neighborhood = ndimage.convolve(
+        obstacle_slice.astype(float),
+        np.ones((kernel_size, kernel_size)),
+        mode="constant",
+        cval=0.0,
+    )
+
+    bev = np.full((*unoccupied.shape, 3), 255, dtype=np.uint8)
+    bev[unoccupied] = (200, 200, 200)
+    bev[explored & unoccupied] = (194, 246, 198)
+    bev[
+        (obstacle_neighborhood > 0)
+        & (obstacle_neighborhood < kernel_size**2 / 2)
+    ] = (100, 100, 100)
+    bev[obstacle_neighborhood >= kernel_size**2 / 2] = (0, 0, 0)
+    return bev, unoccupied
+
+
+def _prediction_weight_and_sigma(scores, min_sigma_m, max_sigma_m):
+    """Map VLM evidence scores to Gaussian strength and uncertainty width."""
+    evidence = np.array(
+        [
+            scores.get("potential_score", 3.0),
+            scores.get("semantic_richness", 3.0),
+            scores.get("explorability", 3.0),
+        ],
+        dtype=float,
+    )
+    evidence = np.clip(evidence, 1.0, 5.0)
+    relevance = float(np.clip(scores.get("goal_relevance", 3.0), 1.0, 5.0))
+    evidence_strength = np.average(evidence, weights=[0.5, 0.3, 0.2]) / 5.0
+    weight = evidence_strength * (relevance / 5.0)
+
+    # The VLM provides categorical evidence rather than calibrated variance.
+    # Treat low evidence and disagreement among diagnostics as higher uncertainty.
+    disagreement = np.std(np.append(evidence, relevance)) / 2.0
+    uncertainty = np.clip(0.5 * (1.0 - evidence_strength) + 0.5 * disagreement, 0.0, 1.0)
+    sigma_m = min_sigma_m + uncertainty * (max_sigma_m - min_sigma_m)
+    return float(weight), float(sigma_m)
+
+
+def save_frontier_gaussian_bev(
+    planner,
+    output_dir,
+    name,
+    candidates,
+    trajectory_voxels=None,
+    display_height=1.8,
+    min_sigma_m=0.5,
+    max_sigma_m=2.0,
+):
+    """Save candidate frontier evidence as Gaussians over the planner BEV.
+
+    ``candidates`` contains ``position`` in planner voxel coordinates and
+    direct VLM ``scores``. Gaussian intensity is future-evidence strength
+    multiplied by current-subtask relevance; width is an uncertainty proxy.
+    """
+    if not candidates:
+        return None
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    bev, traversable = _build_planner_bev(planner, display_height)
+    x_grid, y_grid = np.ogrid[: bev.shape[0], : bev.shape[1]]
+    field = np.zeros(bev.shape[:2], dtype=np.float32)
+    candidate_info = []
+
+    for index, candidate in enumerate(candidates):
+        position = np.asarray(candidate["position"], dtype=float)
+        scores = candidate["scores"]
+        weight, sigma_m = _prediction_weight_and_sigma(
+            scores, min_sigma_m, max_sigma_m
+        )
+        sigma_vox = max(sigma_m / planner._voxel_size, 1e-6)
+        squared_distance = (x_grid - position[0]) ** 2 + (y_grid - position[1]) ** 2
+        field += weight * np.exp(-squared_distance / (2.0 * sigma_vox**2))
+        candidate_info.append((position, weight, sigma_m, index))
+
+    masked_field = np.ma.masked_where((field <= 1e-4) | ~traversable, field)
+    fig, ax = plt.subplots(
+        figsize=(max(8, bev.shape[1] / 120), max(8, bev.shape[0] / 120)),
+        dpi=120,
+    )
+    ax.imshow(bev, interpolation="nearest")
+    heat = ax.imshow(masked_field, cmap="magma", alpha=0.68, interpolation="bilinear", zorder=4)
+    _draw_trajectory(ax, trajectory_voxels, 1, 1)
+
+    for position, weight, sigma_m, index in candidate_info:
+        ax.scatter(
+            position[1], position[0], s=64, c="white", edgecolors="black", linewidths=1.2, zorder=8
+        )
+        ax.text(
+            position[1] + 2,
+            position[0] - 2,
+            f"F{index}: w={weight:.2f}, σ={sigma_m:.1f}m",
+            fontsize=7,
+            color="black",
+            bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "none", "alpha": 0.85},
+            zorder=9,
+        )
+
+    ax.set_title("Frontier future-evidence field", fontsize=10)
+    ax.set_axis_off()
+    colorbar = fig.colorbar(heat, ax=ax, fraction=0.046, pad=0.02)
+    colorbar.set_label("weighted future evidence", fontsize=8)
+    output_path = output_dir / f"{name}_gaussian_bev.png"
+    fig.savefig(output_path, dpi=120, bbox_inches="tight", pad_inches=0)
+    plt.close(fig)
+    return output_path
+
+
 def save_bev_visualization(
     planner,
     output_dir,
@@ -120,39 +246,7 @@ def save_bev_visualization(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    obstacle = planner._obstacle_vol_cpu
-    if obstacle is None:
-        obstacle = np.zeros_like(planner._tsdf_vol_cpu, dtype=bool)
-
-    # Match TSDFPlanner.agent_step() exactly: its legacy top-down map uses a
-    # head-height slice, not an all-height obstacle projection.
-    height_index = int(display_height / planner._voxel_size) + planner.min_height_voxel
-    height_index = int(np.clip(height_index, 0, planner._tsdf_vol_cpu.shape[2] - 1))
-    unoccupied = np.logical_and(
-        planner._tsdf_vol_cpu[:, :, height_index] > 0,
-        planner._tsdf_vol_cpu[:, :, 0] < 0,
-    )
-    explored = np.any(planner._explore_vol_cpu > 0, axis=2)
-    obstacle_slice = obstacle[:, :, height_index]
-    kernel_size = max(1, int(0.3 / planner._voxel_size))
-    obstacle_neighborhood = ndimage.convolve(
-        obstacle_slice.astype(float),
-        np.ones((kernel_size, kernel_size)),
-        mode="constant",
-        cval=0.0,
-    )
-
-    # Same state colors as the original SCOPE planner visualization:
-    # white=unknown/non-traversable, gray=seen traversable, green=explored,
-    # black=obstacle at the display height.
-    bev = np.full((*unoccupied.shape, 3), 255, dtype=np.uint8)
-    bev[unoccupied] = (200, 200, 200)
-    bev[explored & unoccupied] = (194, 246, 198)
-    bev[
-        (obstacle_neighborhood > 0)
-        & (obstacle_neighborhood < kernel_size**2 / 2)
-    ] = (100, 100, 100)
-    bev[obstacle_neighborhood >= kernel_size**2 / 2] = (0, 0, 0)
+    bev, _ = _build_planner_bev(planner, display_height)
 
     if render_resolution <= 0:
         raise ValueError("render_resolution must be positive")

@@ -30,7 +30,7 @@ from src.query_vlm_goatbench import query_vlm_for_response
 from src.logger_goatbench import Logger
 from src.potential_graph import PotentialGraph
 from src.potential_estimation_gpt_goal import get_potential_estimation
-from src.tsdf_export import save_bev_visualization
+from src.tsdf_export import save_bev_visualization, save_frontier_gaussian_bev
 
 
 def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
@@ -400,6 +400,31 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                                         occupied_map=None,
                                         potential_text=None
                                     )
+
+                        if cfg.save_visualization:
+                            gaussian_candidates = []
+                            for frontier in tsdf_planner.frontiers:
+                                prediction = potential_graph.get_frontier_prediction(
+                                    frontier.position
+                                )
+                                if prediction is not None:
+                                    gaussian_candidates.append(
+                                        {
+                                            "position": frontier.position,
+                                            "scores": prediction["scores"],
+                                        }
+                                    )
+                            if gaussian_candidates:
+                                gaussian_path = save_frontier_gaussian_bev(
+                                    tsdf_planner,
+                                    os.path.join(eps_potential_dir, "gaussian_bev"),
+                                    f"{global_step}_{subtask_id}",
+                                    gaussian_candidates,
+                                    trajectory_voxels=logger.pts_voxels,
+                                )
+                                logging.info(
+                                    "Saved frontier Gaussian BEV: %s", gaussian_path
+                                )
 
                     # (4) Choose the next navigation point by querying the VLM
                     if cfg.choose_every_step:
