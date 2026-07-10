@@ -48,7 +48,7 @@ visualization/
 
 ### `bev_semantic/`：增强后的语义 BEV
 
-这是从同一 TSDF 状态生成的清晰对照图：
+这是从同一 TSDF 状态生成的语义对照图：
 
 - 地图底色：TSDF 的 observed/explored/free/obstacle 状态；它与 SCOPE 的规划地图使用同一底层状态。
 - 彩色覆盖区域：ConceptGraph 中物体 3D oriented bounding box 投到地面的 footprint。
@@ -64,14 +64,14 @@ visualization/
 
 ```yaml
 tsdf_grid_size: 0.1
-tsdf_bev_render_resolution: 0.025
+tsdf_bev_render_resolution: 0.1
 ```
 
 这表示：
 
-- TSDF 的真实三维体素仍为 **10 cm**；地图融合、frontier 和导航逻辑仍使用这一分辨率。
-- `bev_semantic` 将二维图以 **2.5 cm/像素**渲染，以便清楚显示对象 footprint、标签和轨迹。
-- 2.5 cm 渲染不会创造新的深度几何细节；它只提高输出图像和覆盖物的显示精度。
+- TSDF 的真实三维体素为 **10 cm**；地图融合、frontier、导航和两种 BEV 的底图都使用这一分辨率。
+- `bev_semantic` 的价值是实例 footprint、类别标签和轨迹箭头，而不是更高的几何分辨率。
+- 将 `tsdf_bev_render_resolution` 设为 2.5 cm 只会把每个 10 cm 栅格放大为 4×4 个相同像素，不会创造新的深度几何细节，因此默认保持 10 cm。
 
 ## 如果缩小真实 TSDF 体素
 
@@ -86,4 +86,4 @@ tsdf_bev_render_resolution: 0.025
 
 SCOPE 除了 TSDF 本身，还为所有体素保存权重、探索状态、体素坐标和预计算相机点；每次 RGB-D 融合都会投影整张体素体。因此上表是保守估计：临时数组、内存带宽和缓存失效会使实际情况更差。
 
-完整评测还会包含检测、分割和 VLM 调用；这些组件可能掩盖一部分总墙钟时间，但 TSDF 融合部分仍近似按上表变慢。建议保持 10 cm TSDF + 2.5 cm BEV 渲染；若需要真正的高分辨率几何，应改用局部稠密窗口、稀疏哈希体素或 HSGM 的点云式地图。
+完整评测还会包含检测、分割和 VLM 调用；这些组件可能掩盖一部分总墙钟时间，但 TSDF 融合部分仍近似按上表变慢。建议保持 10 cm TSDF；若需要真正的高分辨率几何，应改用局部稠密窗口、稀疏哈希体素或 HSGM 的点云式地图。
