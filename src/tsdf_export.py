@@ -5,6 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, Polygon
 import numpy as np
+from scipy import ndimage
 
 
 def _object_footprint_voxels(planner, obj):
@@ -109,6 +110,7 @@ def save_bev_visualization(
     render_resolution=0.025,
     min_object_detections=2,
     trajectory_arrow_stride=1,
+    display_height=1.8,
 ):
     """Save a semantic, high-resolution BEV image.
 
@@ -122,21 +124,35 @@ def save_bev_visualization(
     if obstacle is None:
         obstacle = np.zeros_like(planner._tsdf_vol_cpu, dtype=bool)
 
-    height_index = int(planner.occupancy_height / planner._voxel_size) + planner.min_height_voxel
+    # Match TSDFPlanner.agent_step() exactly: its legacy top-down map uses a
+    # head-height slice, not an all-height obstacle projection.
+    height_index = int(display_height / planner._voxel_size) + planner.min_height_voxel
     height_index = int(np.clip(height_index, 0, planner._tsdf_vol_cpu.shape[2] - 1))
-    free = np.logical_and(
+    unoccupied = np.logical_and(
         planner._tsdf_vol_cpu[:, :, height_index] > 0,
         planner._tsdf_vol_cpu[:, :, 0] < 0,
     )
     explored = np.any(planner._explore_vol_cpu > 0, axis=2)
-    observed = np.any(planner._weight_vol_cpu > 0, axis=2)
-    obstacle_2d = np.any(obstacle, axis=2)
+    obstacle_slice = obstacle[:, :, height_index]
+    kernel_size = max(1, int(0.3 / planner._voxel_size))
+    obstacle_neighborhood = ndimage.convolve(
+        obstacle_slice.astype(float),
+        np.ones((kernel_size, kernel_size)),
+        mode="constant",
+        cval=0.0,
+    )
 
-    bev = np.full((*free.shape, 3), 245, dtype=np.uint8)
-    bev[observed] = (105, 105, 105)
-    bev[explored] = (190, 222, 230)
-    bev[free] = (75, 170, 116)
-    bev[obstacle_2d] = (35, 35, 35)
+    # Same state colors as the original SCOPE planner visualization:
+    # white=unknown/non-traversable, gray=seen traversable, green=explored,
+    # black=obstacle at the display height.
+    bev = np.full((*unoccupied.shape, 3), 255, dtype=np.uint8)
+    bev[unoccupied] = (200, 200, 200)
+    bev[explored & unoccupied] = (194, 246, 198)
+    bev[
+        (obstacle_neighborhood > 0)
+        & (obstacle_neighborhood < kernel_size**2 / 2)
+    ] = (100, 100, 100)
+    bev[obstacle_neighborhood >= kernel_size**2 / 2] = (0, 0, 0)
 
     if render_resolution <= 0:
         raise ValueError("render_resolution must be positive")
@@ -146,14 +162,16 @@ def save_bev_visualization(
     upsample = max(1, int(round(scale)))
     if not np.isclose(scale, upsample):
         raise ValueError("render_resolution must divide the TSDF voxel size")
-    rendered_bev = np.repeat(np.repeat(np.transpose(bev, (1, 0, 2)), upsample, axis=0), upsample, axis=1)
+    # Keep the native [voxel-x, voxel-y] orientation. Matplotlib then uses
+    # x=voxel-y and y=voxel-x, identical to TSDFPlanner.agent_step().
+    rendered_bev = np.repeat(np.repeat(bev, upsample, axis=0), upsample, axis=1)
 
     height, width = rendered_bev.shape[:2]
     fig, ax = plt.subplots(
         figsize=(max(8, width / 120), max(8, height / 120)),
         dpi=120,
     )
-    ax.imshow(rendered_bev, origin="upper", interpolation="nearest")
+    ax.imshow(rendered_bev, interpolation="nearest")
     ax.set_axis_off()
     _draw_trajectory(ax, trajectory_voxels, upsample, trajectory_arrow_stride)
     _draw_object_instances(

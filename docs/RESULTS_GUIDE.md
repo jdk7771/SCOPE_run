@@ -50,7 +50,7 @@ visualization/
 
 这是从同一 TSDF 状态生成的语义对照图：
 
-- 地图底色：TSDF 的 observed/explored/free/obstacle 状态；它与 SCOPE 的规划地图使用同一底层状态。
+- 地图底色与 `bev_before` 使用同一套切片和颜色：白色为未知/不可通行，灰色为已见但未探索的可通行区，浅绿色为已探索可通行区，黑色为约 1.8 m 高度处的障碍。
 - 彩色覆盖区域：ConceptGraph 中物体 3D oriented bounding box 投到地面的 footprint。
 - `实例 ID: 类别名`：例如 `12: chair`。默认只画至少被观测到 2 次的实例，减少单帧误检带来的标签噪声。
 - 橙色线和箭头：本 subtask 的实际执行轨迹与每一段移动方向。
