@@ -585,7 +585,9 @@ class Logger:
         self, global_step, subtask_id, subtask_metadata, goal_obj_ids_mapping, fig
     ):
         assert self.episode_dir is not None
-        visualization_path = os.path.join(self.episode_dir, "visualization")
+        visualization_path = os.path.join(
+            self.episode_dir, "visualization", "bev_before"
+        )
         os.makedirs(visualization_path, exist_ok=True)
 
         ax1 = fig.axes[0]

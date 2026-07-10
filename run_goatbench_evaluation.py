@@ -30,6 +30,7 @@ from src.query_vlm_goatbench import query_vlm_for_response
 from src.logger_goatbench import Logger
 from src.potential_graph import PotentialGraph
 from src.potential_estimation_gpt_goal import get_potential_estimation
+from src.tsdf_export import save_bev_visualization
 
 
 def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
@@ -508,6 +509,30 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                             goal_obj_ids_mapping=goal_obj_ids_mapping,
                             fig=fig,
                         )
+                        try:
+                            bev_path = save_bev_visualization(
+                                tsdf_planner,
+                                os.path.join(
+                                    logger.episode_dir,
+                                    "visualization",
+                                    "bev_semantic",
+                                ),
+                                f"{global_step}_{subtask_id}",
+                                trajectory_voxels=logger.pts_voxels,
+                                objects=scene.objects,
+                                render_resolution=float(
+                                    getattr(cfg, "tsdf_bev_render_resolution", 0.025)
+                                ),
+                                min_object_detections=int(
+                                    getattr(cfg, "tsdf_bev_min_object_detections", 2)
+                                ),
+                                trajectory_arrow_stride=int(
+                                    getattr(cfg, "tsdf_bev_trajectory_arrow_stride", 1)
+                                ),
+                            )
+                            logging.info(f"Saved semantic BEV: {bev_path}")
+                        except Exception as exc:
+                            logging.warning(f"Failed to save semantic BEV: {exc}")
                         # save the visualization of vlm's choice at each step
                         logger.save_frontier_visualization(
                             global_step=global_step,

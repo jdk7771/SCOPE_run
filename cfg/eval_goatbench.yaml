@@ -53,6 +53,13 @@ extra_view_angle_deg_phase_2: 40
 # about tsdf, depth map, and frontier updates
 explored_depth: 1.7
 tsdf_grid_size: 0.1
+# Semantic BEV rendering; this does not change the planner's 10 cm TSDF
+# resolution or serialize its dense arrays.
+# Setting tsdf_grid_size to 0.025 would increase dense volume memory and per-frame
+# integration work by roughly 64x; render resolution only affects image output.
+tsdf_bev_render_resolution: 0.025
+tsdf_bev_min_object_detections: 2
+tsdf_bev_trajectory_arrow_stride: 1
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6
 planner:
