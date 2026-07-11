@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.patches import FancyArrowPatch, Polygon
 import numpy as np
 from scipy import ndimage
@@ -81,7 +82,7 @@ def _draw_trajectory(ax, trajectory_voxels, scale, arrow_stride):
     xy = np.column_stack((trajectory[:, 1] * scale, trajectory[:, 0] * scale))
     ax.plot(xy[:, 0], xy[:, 1], color="#ff8c00", linewidth=2.0, zorder=8)
     ax.scatter(xy[0, 0], xy[0, 1], color="#1f77b4", edgecolors="white", s=42, zorder=10)
-    ax.text(xy[0, 0], xy[0, 1], " START", color="#1f77b4", fontsize=7, va="bottom", zorder=10)
+    ax.text(xy[0, 0], xy[0, 1], " S", color="#1f77b4", fontsize=7, va="bottom", zorder=10)
 
     stride = max(1, int(arrow_stride))
     for start, end in zip(xy[:-1:stride], xy[1::stride]):
@@ -218,9 +219,16 @@ def save_frontier_gaussian_bev(
         dpi=120,
     )
     ax.imshow(score_base, interpolation="nearest")
+    # Match the colorbar to the neutral map: weak/transparent evidence is
+    # white, rather than the near-black low end of the stock magma palette.
+    magma = plt.colormaps.get_cmap("magma")
+    evidence_cmap = LinearSegmentedColormap.from_list(
+        "white_magma",
+        np.vstack((np.array([[1.0, 1.0, 1.0, 1.0]]), magma(np.linspace(0.22, 1.0, 255)))),
+    )
     heat = ax.imshow(
         visible_field,
-        cmap="magma",
+        cmap=evidence_cmap,
         alpha=heat_alpha,
         interpolation="bilinear",
         zorder=4,
@@ -244,7 +252,7 @@ def save_frontier_gaussian_bev(
     ax.set_title("Frontier future-evidence field", fontsize=10)
     ax.set_axis_off()
     colorbar = fig.colorbar(heat, ax=ax, fraction=0.046, pad=0.02)
-    colorbar.set_label("weighted future evidence", fontsize=8)
+    colorbar.set_label("weighted future evidence (white: <3% peak)", fontsize=8)
     output_path = output_dir / f"{name}_gaussian_bev.png"
     fig.savefig(output_path, dpi=120, bbox_inches="tight", pad_inches=0)
     plt.close(fig)
