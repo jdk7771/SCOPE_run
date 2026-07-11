@@ -17,7 +17,7 @@ def query_vlm_for_response(
     cfg,
     verbose: bool = False,
     potential_graph=None,
-) -> Optional[Tuple[Union[SnapShot, Frontier], int]]:
+) -> Optional[Tuple[Union[SnapShot, Frontier], int, list]]:
     # prepare input for vlm
     step_dict = {}
 
@@ -211,7 +211,7 @@ def query_vlm_for_response(
             cluster=[pred_target_obj_id],
         )
 
-        return max_point_choice, n_filtered_snapshots
+        return max_point_choice, n_filtered_snapshots, step_dict.get("prefiltered_classes", [])
     else:  # target_type == "frontier"
         target_index = int(target_index)
         if target_index < 0 or target_index >= len(tsdf_planner.frontiers):
@@ -223,4 +223,4 @@ def query_vlm_for_response(
         logging.info(f"Next choice: Frontier at {target_point}")
         pred_target_frontier = tsdf_planner.frontiers[target_index]
 
-        return pred_target_frontier, n_filtered_snapshots
+        return pred_target_frontier, n_filtered_snapshots, step_dict.get("prefiltered_classes", [])

@@ -162,10 +162,16 @@ def get_step_info(step, verbose=False):
     keep_index_snapshot = {
         rgb_id: list(range(len(snapshot_crops[rgb_id]))) for rgb_id in snapshot_crops
     }
+    selected_classes = []
     if step.get("use_prefiltering") is True:
         use_full_obj_list = step["use_full_obj_list"]
         n_prev_snapshot = len(snapshot_full_imgs)
-        snapshot_classes, keep_index, keep_index_snapshot = prefiltering(
+        (
+            snapshot_classes,
+            keep_index,
+            keep_index_snapshot,
+            selected_classes,
+        ) = prefiltering(
             question,
             snapshot_classes,
             snapshot_clusters,
@@ -181,6 +187,7 @@ def get_step_info(step, verbose=False):
         for rgb_id in snapshot_classes.keys():
             snapshot_crops[rgb_id] = [
                 snapshot_crops[rgb_id][i] for i in keep_index_snapshot[rgb_id]
+    step["prefiltered_classes"] = selected_classes
             ]
         if verbose:
             logging.info(
@@ -386,7 +393,7 @@ def prefiltering(
             snapshot_classes[rgb_id][i] for i in keep_index_snapshot[rgb_id]
         ]
 
-    return snapshot_classes, keep_index, keep_index_snapshot
+    return snapshot_classes, keep_index, keep_index_snapshot, selected_classes
 
 
 def format_self_refine_prompt(question, snapshot_img, description, selected_object_class, task_type="description", image_goal=None):

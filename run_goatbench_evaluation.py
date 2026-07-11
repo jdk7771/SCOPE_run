@@ -209,6 +209,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                 task_success = False
                 cnt_step = -1
                 n_filtered_snapshots = 0
+                relevant_object_classes = []
 
                 # reset tsdf planner
                 tsdf_planner.max_point = None
@@ -479,7 +480,11 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                             logging.info(f"Scene objects: {len(scene.objects)}")
                             break
 
-                        max_point_choice, n_filtered_snapshots = vlm_response
+                        (
+                            max_point_choice,
+                            n_filtered_snapshots,
+                            relevant_object_classes,
+                        ) = vlm_response
 
                         # set the vlm choice as the navigation target
                         update_success = tsdf_planner.set_next_navigation_point(
@@ -549,6 +554,13 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                                     getattr(cfg, "tsdf_bev_render_resolution", 0.025)
                                 ),
                                 min_object_detections=int(
+                                relevant_classes=relevant_object_classes,
+                                max_labeled_categories=int(
+                                    getattr(cfg, "tsdf_bev_max_labeled_categories", 10)
+                                ),
+                                show_irrelevant_outlines=bool(
+                                    getattr(cfg, "tsdf_bev_show_irrelevant_object_outlines", False)
+                                ),
                                     getattr(cfg, "tsdf_bev_min_object_detections", 2)
                                 ),
                                 trajectory_arrow_stride=int(

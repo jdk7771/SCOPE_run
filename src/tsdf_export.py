@@ -27,12 +27,36 @@ def _object_footprint_voxels(planner, obj):
     return points[np.argsort(angles)]
 
 
-def _draw_object_instances(ax, planner, objects, scale, min_detections):
-    """Draw detected 3D object footprints and labels on the high-resolution BEV."""
+def _draw_object_instances(
+    ax,
+    planner,
+    objects,
+    scale,
+    min_detections,
+    relevant_classes=None,
+    max_labeled_categories=10,
+    show_irrelevant_outlines=False,
+):
+    """Draw task-relevant object footprints and optional context outlines.
+
+    ``relevant_classes`` preserves the VLM prefilter ranking.  Only instances
+    whose category is in its first ``max_labeled_categories`` entries receive
+    a colored footprint and label.  When there are fewer selected categories,
+    all available ones are shown; no padding or fallback categories are added.
+    """
     if not objects:
         return 0
 
     cmap = plt.colormaps.get_cmap("tab20")
+    ranked_classes = list(dict.fromkeys(relevant_classes or []))
+    if relevant_classes is None:
+        relevant_class_rank = None  # Preserve the legacy all-instance view.
+    else:
+        limit = max(0, int(max_labeled_categories))
+        if limit:
+            ranked_classes = ranked_classes[:limit]
+        relevant_class_rank = {class_name: rank for rank, class_name in enumerate(ranked_classes)}
+
     count = 0
     for obj_id, obj in objects.items():
         if int(obj.get("num_detections", 0)) < min_detections:
@@ -41,10 +65,30 @@ def _draw_object_instances(ax, planner, objects, scale, min_detections):
         if footprint is None:
             continue
 
-        color = cmap(int(obj_id) % cmap.N)
+        class_name = str(obj.get("class_name", "object"))
+        is_relevant = relevant_class_rank is None or class_name in relevant_class_rank
+        if not is_relevant and not show_irrelevant_outlines:
+            continue
+
         # Matplotlib image axes are (x=voxel-y, y=voxel-x), matching SCOPE's
         # planner visualization convention.
         polygon_xy = np.column_stack((footprint[:, 1] * scale, footprint[:, 0] * scale))
+        if not is_relevant:
+            ax.add_patch(
+                Polygon(
+                    polygon_xy,
+                    closed=True,
+                    facecolor="none",
+                    edgecolor="#6f6f6f",
+                    linewidth=0.7,
+                    alpha=0.60,
+                    zorder=4,
+                )
+            )
+            continue
+
+        color_index = int(obj_id) if relevant_class_rank is None else relevant_class_rank[class_name]
+        color = cmap(color_index % cmap.N)
         ax.add_patch(
             Polygon(
                 polygon_xy,
@@ -57,11 +101,11 @@ def _draw_object_instances(ax, planner, objects, scale, min_detections):
             )
         )
         center = polygon_xy.mean(axis=0)
-        class_name = str(obj.get("class_name", "object"))
+        rank_prefix = "" if relevant_class_rank is None else f"#{relevant_class_rank[class_name] + 1} "
         ax.text(
             center[0],
             center[1],
-            f"{obj_id}: {class_name}",
+            f"{rank_prefix}{obj_id}: {class_name}",
             ha="center",
             va="center",
             fontsize=7,
@@ -264,6 +308,9 @@ def save_bev_visualization(
     render_resolution=0.025,
     min_object_detections=2,
     trajectory_arrow_stride=1,
+    relevant_classes=None,
+    max_labeled_categories=10,
+    show_irrelevant_outlines=False,
     display_height=1.8,
 ):
     """Save a semantic, high-resolution BEV image.
@@ -297,7 +344,14 @@ def save_bev_visualization(
     ax.set_axis_off()
     _draw_trajectory(ax, trajectory_voxels, upsample, trajectory_arrow_stride)
     _draw_object_instances(
-        ax, planner, objects, upsample, int(min_object_detections)
+        ax,
+        planner,
+        objects,
+        upsample,
+        int(min_object_detections),
+        relevant_classes=relevant_classes,
+        max_labeled_categories=max_labeled_categories,
+        show_irrelevant_outlines=show_irrelevant_outlines,
     )
     bev_path = output_dir / f"{name}_bev.png"
     fig.savefig(bev_path, dpi=120, bbox_inches="tight", pad_inches=0)
