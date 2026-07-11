@@ -84,6 +84,14 @@ def _draw_object_instances(
     labeled_candidates = candidates if limit == 0 else candidates[:limit]
     labeled_ids = {obj_id for obj_id, *_ in labeled_candidates}
 
+    # Nearby objects are common in indoor scenes. Place their labels on a
+    # small radial layout and link them back to the footprint, rather than
+    # stacking every name at the box center.
+    label_offsets = [
+        (18, -20), (18, 20), (-18, -20), (-18, 20),
+        (40, -4), (-40, -4), (40, 20), (-40, 20),
+        (0, -40), (0, 40),
+    ]
     count = 0
     for obj_id, obj, footprint, class_name, class_rank in candidates:
         is_labeled = obj_id in labeled_ids
@@ -121,10 +129,21 @@ def _draw_object_instances(
             )
         )
         center = polygon_xy.mean(axis=0)
-        rank_prefix = "" if class_rank is None else f"R#{class_rank + 1} "
+        if class_rank is not None:
+            rank_prefix = f"R#{class_rank + 1} "
+        elif relevant_class_rank is not None:
+            rank_prefix = "C "
+        else:
+            rank_prefix = ""
+        offset = label_offsets[count % len(label_offsets)]
+        label_xy = center + np.asarray(offset) * scale
+        ax.plot(
+            [center[0], label_xy[0]], [center[1], label_xy[1]],
+            color="#4a4a4a", linewidth=0.6, alpha=0.8, zorder=5.5,
+        )
         ax.text(
-            center[0],
-            center[1],
+            label_xy[0],
+            label_xy[1],
             f"{rank_prefix}{obj_id}: {class_name}",
             ha="center",
             va="center",
