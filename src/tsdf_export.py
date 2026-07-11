@@ -34,15 +34,15 @@ def _draw_object_instances(
     scale,
     min_detections,
     relevant_classes=None,
-    max_labeled_categories=10,
+    max_labeled_instances=10,
     show_irrelevant_outlines=False,
 ):
     """Draw task-relevant object footprints and optional context outlines.
 
-    ``relevant_classes`` preserves the VLM prefilter ranking.  Only instances
-    whose category is in its first ``max_labeled_categories`` entries receive
-    a colored footprint and label.  When there are fewer selected categories,
-    all available ones are shown; no padding or fallback categories are added.
+    ``relevant_classes`` preserves the VLM prefilter ranking. Instances from
+    those classes are shown first; remaining label slots are filled by the
+    most stable other instances. If fewer than ``max_labeled_instances`` are
+    available, every stable instance is shown.
     """
     if not objects:
         return 0
@@ -52,28 +52,48 @@ def _draw_object_instances(
     if relevant_classes is None:
         relevant_class_rank = None  # Preserve the legacy all-instance view.
     else:
-        limit = max(0, int(max_labeled_categories))
-        if limit:
-            ranked_classes = ranked_classes[:limit]
         relevant_class_rank = {class_name: rank for rank, class_name in enumerate(ranked_classes)}
 
-    count = 0
+    candidates = []
     for obj_id, obj in objects.items():
         if int(obj.get("num_detections", 0)) < min_detections:
             continue
         footprint = _object_footprint_voxels(planner, obj)
         if footprint is None:
             continue
-
         class_name = str(obj.get("class_name", "object"))
-        is_relevant = relevant_class_rank is None or class_name in relevant_class_rank
-        if not is_relevant and not show_irrelevant_outlines:
+        class_rank = None if relevant_class_rank is None else relevant_class_rank.get(class_name)
+        candidates.append((obj_id, obj, footprint, class_name, class_rank))
+
+    if relevant_class_rank is not None:
+        # Relevant categories follow the VLM order. Non-relevant instances then
+        # backfill unused slots by detection stability, so sparse early maps do
+        # not look empty just because the VLM returned few categories.
+        candidates.sort(
+            key=lambda item: (
+                item[4] is None,
+                item[4] if item[4] is not None else float("inf"),
+                -int(item[1].get("num_detections", 0)),
+                int(item[0]),
+            )
+        )
+    else:
+        candidates.sort(key=lambda item: (-int(item[1].get("num_detections", 0)), int(item[0])))
+
+    limit = max(0, int(max_labeled_instances))
+    labeled_candidates = candidates if limit == 0 else candidates[:limit]
+    labeled_ids = {obj_id for obj_id, *_ in labeled_candidates}
+
+    count = 0
+    for obj_id, obj, footprint, class_name, class_rank in candidates:
+        is_labeled = obj_id in labeled_ids
+        if not is_labeled and not show_irrelevant_outlines:
             continue
 
         # Matplotlib image axes are (x=voxel-y, y=voxel-x), matching SCOPE's
         # planner visualization convention.
         polygon_xy = np.column_stack((footprint[:, 1] * scale, footprint[:, 0] * scale))
-        if not is_relevant:
+        if not is_labeled:
             ax.add_patch(
                 Polygon(
                     polygon_xy,
@@ -87,7 +107,7 @@ def _draw_object_instances(
             )
             continue
 
-        color_index = int(obj_id) if relevant_class_rank is None else relevant_class_rank[class_name]
+        color_index = int(obj_id) if class_rank is None else class_rank
         color = cmap(color_index % cmap.N)
         ax.add_patch(
             Polygon(
@@ -101,7 +121,7 @@ def _draw_object_instances(
             )
         )
         center = polygon_xy.mean(axis=0)
-        rank_prefix = "" if relevant_class_rank is None else f"#{relevant_class_rank[class_name] + 1} "
+        rank_prefix = "" if class_rank is None else f"R#{class_rank + 1} "
         ax.text(
             center[0],
             center[1],
@@ -249,22 +269,24 @@ def save_frontier_gaussian_bev(
     # increase with the normalized evidence instead.
     peak_field = float(field.max())
     normalized_field = field / peak_field if peak_field > 0 else field
+    evidence_cutoff = 0.08
     visible_field = np.ma.masked_where(
-        (normalized_field < 0.03) | ~traversable, field
+        (normalized_field < evidence_cutoff) | ~traversable, field
     )
-    heat_alpha = 0.82 * np.clip((normalized_field - 0.03) / 0.40, 0.0, 1.0)
+    heat_alpha = 0.82 * np.clip(
+        (normalized_field - evidence_cutoff) / (1.0 - evidence_cutoff), 0.0, 1.0
+    ) ** 0.65
     heat_alpha[~traversable] = 0.0
     fig, ax = plt.subplots(
         figsize=(max(8, bev.shape[1] / 120), max(8, bev.shape[0] / 120)),
         dpi=120,
     )
     ax.imshow(score_base, interpolation="nearest")
-    # The score layer is transparent below the cutoff, so its colorbar should
-    # begin at purple rather than white. The gray/green base map remains the
-    # sole encoding of exploration state.
-    magma = plt.colormaps.get_cmap("magma")
+    # Darker red means stronger evidence. The gray/green base map remains the
+    # sole encoding of exploration state, while weak evidence is transparent.
+    reds = plt.colormaps.get_cmap("Reds")
     evidence_cmap = LinearSegmentedColormap.from_list(
-        "truncated_magma", magma(np.linspace(0.22, 1.0, 256))
+        "evidence_reds", reds(np.linspace(0.35, 1.0, 256))
     )
     heat = ax.imshow(
         visible_field,
@@ -292,7 +314,7 @@ def save_frontier_gaussian_bev(
     ax.set_title("Frontier future-evidence field", fontsize=10)
     ax.set_axis_off()
     colorbar = fig.colorbar(heat, ax=ax, fraction=0.046, pad=0.02)
-    colorbar.set_label("weighted future evidence (<3% peak: transparent)", fontsize=8)
+    colorbar.set_label("weighted future evidence (<8% peak: transparent)", fontsize=8)
     output_path = output_dir / f"{name}_gaussian_bev.png"
     fig.savefig(output_path, dpi=120, bbox_inches="tight", pad_inches=0)
     plt.close(fig)
@@ -309,7 +331,7 @@ def save_bev_visualization(
     min_object_detections=2,
     trajectory_arrow_stride=1,
     relevant_classes=None,
-    max_labeled_categories=10,
+    max_labeled_instances=10,
     show_irrelevant_outlines=False,
     display_height=1.8,
 ):
@@ -350,7 +372,7 @@ def save_bev_visualization(
         upsample,
         int(min_object_detections),
         relevant_classes=relevant_classes,
-        max_labeled_categories=max_labeled_categories,
+        max_labeled_instances=max_labeled_instances,
         show_irrelevant_outlines=show_irrelevant_outlines,
     )
     bev_path = output_dir / f"{name}_bev.png"

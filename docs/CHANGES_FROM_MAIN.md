@@ -27,8 +27,8 @@
 原始 VLM 预筛会为当前任务返回按相关性排序的类别列表。
 本分支将该列表带到 BEV 渲染：
 
-- `tsdf_bev_max_labeled_categories: 10`：只填色并标注前 N 个相关类别的实例；
-  若可用类别少于 N，则显示全部可用类别。
+- `tsdf_bev_max_labeled_instances: 10`：优先填色并标注任务相关类别的实例，再按
+  检测稳定性补足其他实例；若稳定实例少于 N，则显示全部稳定实例。
 - `tsdf_bev_show_irrelevant_object_outlines: false`：默认不显示其他实例。设为
   `true` 时，它们只画无标签的细灰轮廓，供审计使用。
 - 这些选项只改变保存图，不改变 VLM 输入、前沿评分或导航动作。
@@ -56,7 +56,7 @@ tsdf_grid_size: 0.1
 tsdf_bev_render_resolution: 0.1
 tsdf_bev_min_object_detections: 2
 tsdf_bev_trajectory_arrow_stride: 1
-tsdf_bev_max_labeled_categories: 10
+tsdf_bev_max_labeled_instances: 10
 tsdf_bev_show_irrelevant_object_outlines: false
 ```
 

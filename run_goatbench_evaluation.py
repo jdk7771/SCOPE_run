@@ -555,8 +555,8 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                                 ),
                                 min_object_detections=int(
                                 relevant_classes=relevant_object_classes,
-                                max_labeled_categories=int(
-                                    getattr(cfg, "tsdf_bev_max_labeled_categories", 10)
+                                max_labeled_instances=int(
+                                    getattr(cfg, "tsdf_bev_max_labeled_instances", 10)
                                 ),
                                 show_irrelevant_outlines=bool(
                                     getattr(cfg, "tsdf_bev_show_irrelevant_object_outlines", False)

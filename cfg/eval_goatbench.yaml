@@ -58,7 +58,7 @@ tsdf_grid_size: 0.1
 tsdf_bev_render_resolution: 0.1
 tsdf_bev_min_object_detections: 2
 tsdf_bev_trajectory_arrow_stride: 1
-tsdf_bev_max_labeled_categories: 10  # labels only the first N VLM-prefiltered categories; fewer candidates are all shown
+tsdf_bev_max_labeled_instances: 10  # task-relevant instances first; backfill with stable other instances, or show all if fewer than N
 tsdf_bev_show_irrelevant_object_outlines: false  # optionally retain unlabeled gray outlines for non-selected instances
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6
