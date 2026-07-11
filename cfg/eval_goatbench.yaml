@@ -52,10 +52,10 @@ extra_view_angle_deg_phase_2: 40
 
 # about tsdf, depth map, and frontier updates
 explored_depth: 1.7
-tsdf_grid_size: 0.1
-# Render at the native TSDF resolution. A smaller image pixel size only upsamples
-# the 10 cm grid and does not add geometric detail.
-tsdf_bev_render_resolution: 0.1
+tsdf_grid_size: 0.05
+# Render at the native 5 cm TSDF resolution. Keeping these equal avoids
+# upsampling a coarser grid and preserves genuine voxel-map detail.
+tsdf_bev_render_resolution: 0.05
 tsdf_bev_min_object_detections: 2
 tsdf_bev_trajectory_arrow_stride: 1
 tsdf_bev_max_labeled_instances: 10  # task-relevant instances first; backfill with stable other instances, or show all if fewer than N
