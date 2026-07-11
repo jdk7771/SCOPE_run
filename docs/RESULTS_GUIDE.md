@@ -30,7 +30,7 @@ results/exp_eval_goatbench/<scene_id>_ep_<episode_id>/
 potential_graph/gaussian_bev/<global_step>_<subtask_id>_gaussian_bev.png
 ```
 
-它以同一张 SCOPE BEV 为底图，并只在可通行区域叠加候选 frontier 的高斯场：
+它以白色底图显示评分场，并只保留深灰障碍作为空间参照；候选高斯只叠加在可通行区域：
 
 - 白色圆点 `F<i>`：候选 frontier/action endpoint。
 - 高斯强度 `w`：由预测的未来证据潜力（overall potential、semantic richness、explorability）与当前子任务 goal relevance 相乘得到。

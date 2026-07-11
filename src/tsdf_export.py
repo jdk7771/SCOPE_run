@@ -179,6 +179,14 @@ def save_frontier_gaussian_bev(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     bev, traversable = _build_planner_bev(planner, display_height)
+    # A neutral background makes the score field legible. Keep only obstacle
+    # geometry as a spatial reference; free/explored state colors stay in the
+    # separate before/semantic BEV pair.
+    score_base = np.full_like(bev, 255)
+    obstacle_edge = np.all(bev == (100, 100, 100), axis=2)
+    obstacle_core = np.all(bev == (0, 0, 0), axis=2)
+    score_base[obstacle_edge] = (185, 185, 185)
+    score_base[obstacle_core] = (65, 65, 65)
     x_grid, y_grid = np.ogrid[: bev.shape[0], : bev.shape[1]]
     field = np.zeros(bev.shape[:2], dtype=np.float32)
     candidate_info = []
@@ -199,7 +207,7 @@ def save_frontier_gaussian_bev(
         figsize=(max(8, bev.shape[1] / 120), max(8, bev.shape[0] / 120)),
         dpi=120,
     )
-    ax.imshow(bev, interpolation="nearest")
+    ax.imshow(score_base, interpolation="nearest")
     heat = ax.imshow(masked_field, cmap="magma", alpha=0.68, interpolation="bilinear", zorder=4)
     _draw_trajectory(ax, trajectory_voxels, 1, 1)
 
