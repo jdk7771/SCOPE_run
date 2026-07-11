@@ -202,13 +202,29 @@ def save_frontier_gaussian_bev(
         field += weight * np.exp(-squared_distance / (2.0 * sigma_vox**2))
         candidate_info.append((position, weight, sigma_m, index))
 
-    masked_field = np.ma.masked_where((field <= 1e-4) | ~traversable, field)
+    # A constant alpha would tint the entire explored region dark: even the
+    # very small tails of a 0.5--2 m Gaussian receive the darkest magma
+    # colour.  Reveal the neutral map below weak evidence and make opacity
+    # increase with the normalized evidence instead.
+    peak_field = float(field.max())
+    normalized_field = field / peak_field if peak_field > 0 else field
+    visible_field = np.ma.masked_where(
+        (normalized_field < 0.03) | ~traversable, field
+    )
+    heat_alpha = 0.82 * np.clip((normalized_field - 0.03) / 0.40, 0.0, 1.0)
+    heat_alpha[~traversable] = 0.0
     fig, ax = plt.subplots(
         figsize=(max(8, bev.shape[1] / 120), max(8, bev.shape[0] / 120)),
         dpi=120,
     )
     ax.imshow(score_base, interpolation="nearest")
-    heat = ax.imshow(masked_field, cmap="magma", alpha=0.68, interpolation="bilinear", zorder=4)
+    heat = ax.imshow(
+        visible_field,
+        cmap="magma",
+        alpha=heat_alpha,
+        interpolation="bilinear",
+        zorder=4,
+    )
     _draw_trajectory(ax, trajectory_voxels, 1, 1)
 
     for position, weight, sigma_m, index in candidate_info:
