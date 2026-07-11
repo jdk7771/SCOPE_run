@@ -35,14 +35,15 @@ def _draw_object_instances(
     min_detections,
     relevant_classes=None,
     max_labeled_instances=10,
+    fill_irrelevant_instances=False,
     show_irrelevant_outlines=False,
 ):
     """Draw task-relevant object footprints and optional context outlines.
 
     ``relevant_classes`` preserves the VLM prefilter ranking. Instances from
-    those classes are shown first; remaining label slots are filled by the
-    most stable other instances. If fewer than ``max_labeled_instances`` are
-    available, every stable instance is shown.
+    those classes are shown first. By default, non-relevant instances do not
+    consume label slots; ``fill_irrelevant_instances`` enables that diagnostic
+    fallback when desired.
     """
     if not objects:
         return 0
@@ -66,9 +67,7 @@ def _draw_object_instances(
         candidates.append((obj_id, obj, footprint, class_name, class_rank))
 
     if relevant_class_rank is not None:
-        # Relevant categories follow the VLM order. Non-relevant instances then
-        # backfill unused slots by detection stability, so sparse early maps do
-        # not look empty just because the VLM returned few categories.
+        # Relevant categories follow the VLM order; stability breaks ties.
         candidates.sort(
             key=lambda item: (
                 item[4] is None,
@@ -80,17 +79,21 @@ def _draw_object_instances(
     else:
         candidates.sort(key=lambda item: (-int(item[1].get("num_detections", 0)), int(item[0])))
 
+    if relevant_class_rank is None or fill_irrelevant_instances:
+        label_pool = candidates
+    else:
+        label_pool = [candidate for candidate in candidates if candidate[4] is not None]
     limit = max(0, int(max_labeled_instances))
-    labeled_candidates = candidates if limit == 0 else candidates[:limit]
+    labeled_candidates = label_pool if limit == 0 else label_pool[:limit]
     labeled_ids = {obj_id for obj_id, *_ in labeled_candidates}
 
-    # Nearby objects are common in indoor scenes. Place their labels on a
-    # small radial layout and link them back to the footprint, rather than
-    # stacking every name at the box center.
+    # Nearby objects are common in indoor scenes. Place their labels just next
+    # to the footprint (about 0.35--0.7 m), without leader lines.
+    label_step = max(2, int(round(0.35 / planner._voxel_size))) * scale
     label_offsets = [
-        (18, -20), (18, 20), (-18, -20), (-18, 20),
-        (40, -4), (-40, -4), (40, 20), (-40, 20),
-        (0, -40), (0, 40),
+        (1, -1), (1, 1), (-1, -1), (-1, 1),
+        (2, 0), (-2, 0), (2, 1), (-2, 1),
+        (0, -2), (0, 2),
     ]
     count = 0
     for obj_id, obj, footprint, class_name, class_rank in candidates:
@@ -136,11 +139,7 @@ def _draw_object_instances(
         else:
             rank_prefix = ""
         offset = label_offsets[count % len(label_offsets)]
-        label_xy = center + np.asarray(offset) * scale
-        ax.plot(
-            [center[0], label_xy[0]], [center[1], label_xy[1]],
-            color="#4a4a4a", linewidth=0.6, alpha=0.8, zorder=5.5,
-        )
+        label_xy = center + np.asarray(offset) * label_step
         ax.text(
             label_xy[0],
             label_xy[1],
@@ -351,6 +350,7 @@ def save_bev_visualization(
     trajectory_arrow_stride=1,
     relevant_classes=None,
     max_labeled_instances=10,
+    fill_irrelevant_instances=False,
     show_irrelevant_outlines=False,
     display_height=1.8,
 ):
@@ -392,6 +392,7 @@ def save_bev_visualization(
         int(min_object_detections),
         relevant_classes=relevant_classes,
         max_labeled_instances=max_labeled_instances,
+        fill_irrelevant_instances=fill_irrelevant_instances,
         show_irrelevant_outlines=show_irrelevant_outlines,
     )
     bev_path = output_dir / f"{name}_bev.png"
