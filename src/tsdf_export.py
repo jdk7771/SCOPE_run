@@ -180,14 +180,10 @@ def save_frontier_gaussian_bev(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     bev, traversable = _build_planner_bev(planner, display_height)
-    # A neutral background makes the score field legible. Keep only obstacle
-    # geometry as a spatial reference; free/explored state colors stay in the
-    # separate before/semantic BEV pair.
-    score_base = np.full_like(bev, 255)
-    obstacle_edge = np.all(bev == (100, 100, 100), axis=2)
-    obstacle_core = np.all(bev == (0, 0, 0), axis=2)
-    score_base[obstacle_edge] = (185, 185, 185)
-    score_base[obstacle_core] = (65, 65, 65)
+    # Preserve SCOPE's state semantics beneath the score field: unexplored
+    # free space is gray, explored free space is green, and obstacles are
+    # black.  A blank white score canvas hides this navigation context.
+    score_base = bev.copy()
     x_grid, y_grid = np.ogrid[: bev.shape[0], : bev.shape[1]]
     field = np.zeros(bev.shape[:2], dtype=np.float32)
     candidate_info = []
@@ -219,12 +215,12 @@ def save_frontier_gaussian_bev(
         dpi=120,
     )
     ax.imshow(score_base, interpolation="nearest")
-    # Match the colorbar to the neutral map: weak/transparent evidence is
-    # white, rather than the near-black low end of the stock magma palette.
+    # The score layer is transparent below the cutoff, so its colorbar should
+    # begin at purple rather than white. The gray/green base map remains the
+    # sole encoding of exploration state.
     magma = plt.colormaps.get_cmap("magma")
     evidence_cmap = LinearSegmentedColormap.from_list(
-        "white_magma",
-        np.vstack((np.array([[1.0, 1.0, 1.0, 1.0]]), magma(np.linspace(0.22, 1.0, 255)))),
+        "truncated_magma", magma(np.linspace(0.22, 1.0, 256))
     )
     heat = ax.imshow(
         visible_field,
@@ -252,7 +248,7 @@ def save_frontier_gaussian_bev(
     ax.set_title("Frontier future-evidence field", fontsize=10)
     ax.set_axis_off()
     colorbar = fig.colorbar(heat, ax=ax, fraction=0.046, pad=0.02)
-    colorbar.set_label("weighted future evidence (white: <3% peak)", fontsize=8)
+    colorbar.set_label("weighted future evidence (<3% peak: transparent)", fontsize=8)
     output_path = output_dir / f"{name}_gaussian_bev.png"
     fig.savefig(output_path, dpi=120, bbox_inches="tight", pad_inches=0)
     plt.close(fig)
