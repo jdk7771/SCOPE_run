@@ -317,7 +317,6 @@ class Scene:
 
         # set up object_classes first
         obj_classes = self.obj_classes
-
         # Detect objects
         results = self.detection_model.predict(image_rgb, conf=0.1, verbose=False)
         confidences = results[0].boxes.conf.cpu().numpy()
@@ -457,7 +456,6 @@ class Scene:
         detection_list = self.make_detection_list_from_pcd_and_gobs(
             gobs, img_path, obj_classes
         )
-
         if len(detection_list) == 0:  # no detections, skip
             logging.debug(
                 "No detections left after make_detection_list_from_pcd_and_gobs"

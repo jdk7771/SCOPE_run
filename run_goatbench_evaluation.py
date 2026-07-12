@@ -33,7 +33,7 @@ from src.potential_estimation_gpt_goal import get_potential_estimation
 from src.tsdf_export import save_bev_visualization, save_frontier_gaussian_bev
 
 
-def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
+def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
     # load the default concept graph config
     cfg_cg = OmegaConf.load(cfg.concept_graph_config_path)
     OmegaConf.resolve(cfg_cg)
@@ -47,9 +47,17 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
 
     # Load dataset
     scene_data_list = os.listdir(cfg.test_data_dir)
+    if scene_name_filter:
+        scene_name_filter = scene_name_filter.split("-", 1)[-1]
+        scene_data_list = [
+            filename
+            for filename in scene_data_list
+            if os.path.splitext(filename)[0] == scene_name_filter
+        ]
+        if not scene_data_list:
+            raise ValueError(f"No GOAT-Bench data found for scene: {scene_name_filter}")
     num_scene = len(scene_data_list)
     random.shuffle(scene_data_list)
-
     # split the test data by scene
     scene_data_list = scene_data_list[
         int(start_ratio * num_scene) : int(end_ratio * num_scene)
@@ -87,7 +95,10 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
 
     for scene_data_file in scene_data_list:
         # load goatbench data
+        # print(scene_data_file)
         scene_name = scene_data_file.split(".")[0]
+        # print(scene_name)
+        # input("debug")
         scene_id = [scene_id for scene_id in all_scene_ids if scene_name in scene_id][0]
         scene_data = json.load(
             open(os.path.join(cfg.test_data_dir, scene_data_file), "r")
@@ -113,7 +124,9 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                     all_navigation_goals=all_navigation_goals,
                 )
             )
-
+            # print(all_subtask_goals)
+            # print(all_subtask_goal_types)
+            # input("debug")
 
             finished_subtask_ids = list(logger.success_by_snapshot.keys())
             finished_episode_subtask = [
@@ -147,6 +160,8 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
 
             # initialize the TSDF
             floor_height = pts[1]
+            # print(pts)
+            # input("debug")
             tsdf_bnds, scene_size = get_scene_bnds(scene.pathfinder, floor_height)
             num_step = int(math.sqrt(scene_size) * cfg.max_step_room_size_ratio)
             num_step = max(num_step, 50)
@@ -177,6 +192,8 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
             # Create potential graph visualization directory
             eps_potential_dir = os.path.join(episode_dir, "potential_graph")
             os.makedirs(eps_potential_dir, exist_ok=True)
+            eps_potential_vlm_input_dir = os.path.join(eps_potential_dir, "vlm_inputs")
+            os.makedirs(eps_potential_vlm_input_dir, exist_ok=True)
 
             logging.info(f"\n\nScene {scene_id} initialization successful!")
 
@@ -204,7 +221,8 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                 goal_obj_ids_mapping = {
                     obj_id: [] for obj_id in subtask_metadata["goal_obj_ids"]
                 }
-
+                # print(goal_obj_ids_mapping)
+                # input("debug")
                 # run steps
                 task_success = False
                 cnt_step = -1
@@ -369,7 +387,6 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                         for i, frontier in enumerate(tsdf_planner.frontiers):
 
                             frontier_key = (tuple(frontier.position), frontier.image)
-
                             if frontier_key in potential_graph._analyzed_frontiers: 
                                 continue
 
@@ -377,6 +394,30 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                                 try:
                                     potential_text = get_potential_estimation(subtask_metadata, frontier.feature)
                                     logging.info(f"Frontier {i} potential estimation: {potential_text}")
+                                    potential_input_name = f"step_{global_step}_subtask_{subtask_idx}_frontier_{i}"
+                                    plt.imsave(
+                                        os.path.join(eps_potential_vlm_input_dir, f"{potential_input_name}_frontier.png"),
+                                        frontier.feature,
+                                    )
+                                    with open(os.path.join(eps_potential_vlm_input_dir, f"{potential_input_name}_metadata.json"), "w") as f:
+                                        json.dump(
+                                            {
+                                                "global_step": global_step,
+                                                "cnt_step": cnt_step,
+                                                "subtask_idx": subtask_idx,
+                                                "frontier_index": i,
+                                                "frontier_image": frontier.image,
+                                                "frontier_position_voxel": frontier.position.tolist(),
+                                                "question": subtask_metadata["question"],
+                                                "task_type": subtask_metadata["task_type"],
+                                                "target_class": subtask_metadata["class"],
+                                                "goal_image": subtask_metadata.get("image"),
+                                            },
+                                            f,
+                                            indent=2,
+                                        )
+                                    with open(os.path.join(eps_potential_vlm_input_dir, f"{potential_input_name}_response.txt"), "w") as f:
+                                        f.write(potential_text or "")
                                     
                                     potential_graph.update_from_frontier(
                                         frontier=frontier,
@@ -391,6 +432,14 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                                     frontier_world_pos = potential_graph._voxel_to_world(frontier.position)
                                     final_score = potential_graph.get_potential_at_position(np.array([frontier_world_pos[0], frontier_world_pos[2]]))
                                     logging.info(f"Frontier {i} final potential score: {final_score:.2f}")
+                                    if cfg.save_visualization:
+                                        potential_graph.visualize(
+                                            save_path=os.path.join(
+                                                eps_potential_dir,
+                                                f"potential_after_frontier_{global_step}_{subtask_id}_{i}.png",
+                                            ),
+                                            title=f"After Frontier {i} - Step {cnt_step}",
+                                        )
                                     
                                 except Exception as e:
                                     logging.warning(f"Failed to get potential estimation for frontier {i}: {e}")
@@ -554,17 +603,20 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                                     getattr(cfg, "tsdf_bev_render_resolution", 0.025)
                                 ),
                                 min_object_detections=int(
-                                relevant_classes=relevant_object_classes,
-                                max_labeled_instances=int(
-                                    getattr(cfg, "tsdf_bev_max_labeled_instances", 10)
-                                ),
-                                show_irrelevant_outlines=bool(
-                                    getattr(cfg, "tsdf_bev_show_irrelevant_object_outlines", False)
-                                ),
                                     getattr(cfg, "tsdf_bev_min_object_detections", 2)
                                 ),
                                 trajectory_arrow_stride=int(
                                     getattr(cfg, "tsdf_bev_trajectory_arrow_stride", 1)
+                                ),
+                                relevant_classes=relevant_object_classes,
+                                max_labeled_instances=int(
+                                    getattr(cfg, "tsdf_bev_max_labeled_instances", 10)
+                                ),
+                                fill_irrelevant_instances=bool(
+                                    getattr(cfg, "tsdf_bev_fill_irrelevant_instances", False)
+                                ),
+                                show_irrelevant_outlines=bool(
+                                    getattr(cfg, "tsdf_bev_show_irrelevant_object_outlines", False)
                                 ),
                             )
                             logging.info(f"Saved semantic BEV: {bev_path}")
@@ -707,10 +759,10 @@ if __name__ == "__main__":
     parser.add_argument("--start_ratio", help="start ratio", default=0.0, type=float)
     parser.add_argument("--end_ratio", help="end ratio", default=1.0, type=float)
     parser.add_argument("--split", help="which episode", default=1, type=int)
+    parser.add_argument("--scene_name", help="run exactly one HM3D scene", default="", type=str)
     args = parser.parse_args()
     cfg = OmegaConf.load(args.cfg_file)
     OmegaConf.resolve(cfg)
-
     # Set up logging
     cfg.output_dir = os.path.join(cfg.output_parent_dir, cfg.exp_name)
     if not os.path.exists(cfg.output_dir):
@@ -751,4 +803,10 @@ if __name__ == "__main__":
 
     # run
     logging.info(f"***** Running {cfg.exp_name} *****")
-    main(cfg, start_ratio=args.start_ratio, end_ratio=args.end_ratio, split=args.split)
+    main(
+        cfg,
+        start_ratio=args.start_ratio,
+        end_ratio=args.end_ratio,
+        split=args.split,
+        scene_name_filter=args.scene_name or None,
+    )

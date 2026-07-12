@@ -107,6 +107,7 @@ def query_vlm_for_response(
         step_dict["use_egocentric_views"] = True
 
     # prepare other metadata
+    step_dict["question_id"] = subtask_metadata.get("question_id", "unknown_question")
     step_dict["question"] = subtask_metadata["question"]
     step_dict["task_type"] = subtask_metadata["task_type"]
     step_dict["class"] = subtask_metadata["class"]

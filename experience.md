@@ -238,3 +238,25 @@ Average number of filtered snapshots
 本次实验流程基本跑通，并产生了完整的 split 1 结果，但结果很差。核心原因不是 GOAT-Bench 命令本身，而是本地 `qwen3.5:27b` 作为 VLM 后端时，无法稳定完成 SCOPE 所需的多图理解、候选过滤、frontier 评估和严格格式输出。
 
 如果目标是复现论文，建议优先换成 GPT-4o。如果 API 成本或可用性有限，可以尝试 Gemini 2.0 Flash。如果必须本地运行，需要换更强的多模态模型，并先做格式输出和多图选择能力测试。
+
+## 9. 2026-07-09 可视化阶段 KeyError 记录
+
+运行 tmux 会话 `scop`（工作目录 `/mnt/data/SCOPE`）时，split 4 在 `00891-cvZr5TUy5C5_3_5` 附近崩溃：
+
+```text
+Traceback (most recent call last):
+  File "/mnt/data/SCOPE/run_goatbench_evaluation.py", line 732, in <module>
+    main(cfg, start_ratio=args.start_ratio, end_ratio=args.end_ratio, split=args.split)
+  File "/mnt/data/SCOPE/run_goatbench_evaluation.py", line 513, in main
+    return_values = tsdf_planner.agent_step(...)
+  File "/mnt/data/SCOPE/src/tsdf_planner.py", line 814, in agent_step
+    obj_vox = self.habitat2voxel(objects[obj_id]["bbox"].center)
+KeyError: 169
+```
+
+原因：VLM 先选择了 snapshot 中的 object `169`（bathtub），随后 `scene.periodic_cleanup_objects()` 做 filtering/merging，`scene.objects` 中该 object id 被删除或合并，但 `self.max_point.cluster` 仍保留旧 id。之后 `agent_step()` 在保存 BEV/top-down 可视化时继续访问 `objects[169]`，导致 `KeyError`。
+
+影响范围：这是 `save_visualization=True` 时的绘图崩溃，不是 VLM 决策、导航目标计算或最终评测逻辑本身报错。
+
+处理：在 `src/tsdf_planner.py` 的可视化绘制循环中加入 guard：如果 snapshot/max_point 的 `obj_id` 已经不在 `objects` 中，则跳过该点的绘制。这样只会少画已被 cleanup 删除的 object marker，不改变导航、VLM 输入、potential score 或成功率计算。
+

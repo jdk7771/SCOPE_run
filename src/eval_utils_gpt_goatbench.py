@@ -5,6 +5,7 @@ import base64
 from io import BytesIO
 import os
 import time
+import json
 from typing import Optional
 import logging
 from src.const import *
@@ -187,13 +188,13 @@ def get_step_info(step, verbose=False):
         for rgb_id in snapshot_classes.keys():
             snapshot_crops[rgb_id] = [
                 snapshot_crops[rgb_id][i] for i in keep_index_snapshot[rgb_id]
-    step["prefiltered_classes"] = selected_classes
             ]
         if verbose:
             logging.info(
                 f"Prefiltering snapshot: {n_prev_snapshot} -> {len(snapshot_full_imgs)}"
             )
 
+    step["prefiltered_classes"] = selected_classes
     return (
         question,
         image_goal,
@@ -483,6 +484,50 @@ def self_refine_choice(question, snapshot_img, description, selected_object_clas
         return True
 
 
+def _save_vlm_input_bundle(step, cfg, sys_prompt, content, snapshot_id_mapping, snapshot_crop_mapping):
+    if not getattr(cfg, "save_vlm_inputs", True):
+        return
+
+    output_dir = getattr(cfg, "output_dir", "results")
+    question_id = str(step.get("question_id", "unknown_question")).replace("/", "_")
+    bundle_root = os.path.join(output_dir, "vlm_full_inputs")
+    os.makedirs(bundle_root, exist_ok=True)
+    bundle_dir = os.path.join(bundle_root, f"{int(time.time() * 1000)}_{question_id}")
+    os.makedirs(bundle_dir, exist_ok=True)
+
+    with open(os.path.join(bundle_dir, "system_prompt.txt"), "w") as f:
+        f.write(sys_prompt)
+
+    manifest = {
+        "question_id": step.get("question_id"),
+        "question": step.get("question"),
+        "task_type": step.get("task_type"),
+        "target_class": step.get("class"),
+        "goal_image": step.get("image"),
+        "snapshot_id_mapping": snapshot_id_mapping,
+        "snapshot_crop_mapping": snapshot_crop_mapping,
+        "content": [],
+    }
+
+    readable_lines = []
+    for idx, item in enumerate(content):
+        text = item[0]
+        entry = {"index": idx, "text": text, "image": None}
+        readable_lines.append(f"\n===== CONTENT {idx} TEXT =====\n{text}\n")
+        if len(item) == 2:
+            image_path = f"content_{idx:03d}.png"
+            Image.open(BytesIO(base64.b64decode(item[1]))).save(os.path.join(bundle_dir, image_path))
+            entry["image"] = image_path
+            readable_lines.append(f"[image saved: {image_path}]\n")
+        manifest["content"].append(entry)
+
+    with open(os.path.join(bundle_dir, "content_order.md"), "w") as f:
+        f.write("".join(readable_lines))
+    with open(os.path.join(bundle_dir, "manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+    logging.info(f"Saved full VLM input bundle to {bundle_dir}")
+
+
 def explore_step(step, cfg, verbose=False):
     step["use_prefiltering"] = cfg.prefiltering
     step["top_k_categories"] = cfg.top_k_categories
@@ -519,6 +564,7 @@ def explore_step(step, cfg, verbose=False):
 
     if verbose:
         logging.info(f"Input prompt length: {len(sys_prompt)} chars")
+    _save_vlm_input_bundle(step, cfg, sys_prompt, content, snapshot_id_mapping, snapshot_crop_mapping)
 
     retry_bound = 5
     max_cycle_count = 3

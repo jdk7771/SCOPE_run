@@ -59,6 +59,8 @@ contains `/your_path/hm3d/train/` and `/your_path/hm3d/val/`, you can set the `s
 #### OpenAI API Setup
 Please set up the endpoint and API key for the OpenAI API in `src/const.py`.
 
+
+
 <!-- ### 2 - Run Evaluation on A-EQA
 
 First run the following script to generate the predictions for the A-EQA dataset:
@@ -74,6 +76,8 @@ python run_aeqa_evaluation.py -cf cfg/eval_aeqa.yaml --start_ratio 0.0 --end_rat
 After the scripts finish, the results from all splits will be automatically aggregated and saved.
 
 To evaluate the predictions with the pipeline from OpenEQA, you can refer to [link](https://github.com/yyuncong/3D-Mem-AEQA-Eval) -->
+
+
 
 ### 2 - Run Evaluation on GOAT-Bench
 You can directly run the following script:
