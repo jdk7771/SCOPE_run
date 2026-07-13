@@ -449,7 +449,15 @@ class TSDFPlanner(TSDFPlannerBase):
         self.max_point = choice
 
         if type(choice) == SnapShot:
-            obj_centers = [objects[obj_id]["bbox"].center for obj_id in choice.cluster]
+            live_cluster = [obj_id for obj_id in choice.cluster if obj_id in objects]
+            if not live_cluster:
+                logging.warning(
+                    "Skipping snapshot navigation target because all cluster objects were removed: %s",
+                    choice.image,
+                )
+                self.max_point = None
+                return False
+            obj_centers = [objects[obj_id]["bbox"].center for obj_id in live_cluster]
             obj_centers = [self.habitat2voxel(center)[:2] for center in obj_centers]
             obj_centers = list(
                 set([tuple(center) for center in obj_centers])
@@ -752,9 +760,18 @@ class TSDFPlanner(TSDFPlannerBase):
 
             for key, snapshot in snapshots.items():
                 obs_point = snapshot.obs_point[:2]
+                live_cluster = [
+                    obj_id for obj_id in snapshot.cluster if obj_id in objects
+                ]
+                if not live_cluster:
+                    logging.warning(
+                        "Skipping visualization of snapshot with only stale object IDs: %s",
+                        snapshot.image,
+                    )
+                    continue
                 obj_points = [
                     self.habitat2voxel(objects[obj_id]["bbox"].center)[:2]
-                    for obj_id in snapshot.cluster
+                    for obj_id in live_cluster
                 ]
                 obj_center = np.mean(obj_points, axis=0)
                 view_direction = obj_center - obs_point
@@ -805,15 +822,18 @@ class TSDFPlanner(TSDFPlannerBase):
 
                 ax1.add_patch(wedge)
 
-                for obj_id in snapshot.cluster:
-                    if obj_id not in objects:
-                        continue
+                for obj_id in live_cluster:
                     obj_vox = self.habitat2voxel(objects[obj_id]["bbox"].center)
                     ax1.scatter(obj_vox[1], obj_vox[0], color=snapshot.color, s=30)
 
             if type(self.max_point) == SnapShot:
                 for obj_id in self.max_point.cluster:
                     if obj_id not in objects:
+                        logging.warning(
+                            "Skipping stale target object ID %s in snapshot %s",
+                            obj_id,
+                            self.max_point.image,
+                        )
                         continue
                     obj_vox = self.habitat2voxel(objects[obj_id]["bbox"].center)
                     ax1.scatter(obj_vox[1], obj_vox[0], color="r", s=30)
