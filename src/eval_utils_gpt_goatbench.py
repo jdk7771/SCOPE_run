@@ -10,6 +10,7 @@ from typing import Optional
 import logging
 import re
 from src.const import *
+from src.vlm_timing import record_vlm_response
 
 client = OpenAI(
     base_url=END_POINT,
@@ -34,7 +35,7 @@ def format_content(contents):
 
 
 # send information to openai
-def call_openai_api(sys_prompt, contents) -> Optional[str]:
+def call_openai_api(sys_prompt, contents, call_type="decision") -> Optional[str]:
     rate_limit_retries = 0
     other_error_retries = 0
     max_rate_limit_retries = 20
@@ -47,6 +48,8 @@ def call_openai_api(sys_prompt, contents) -> Optional[str]:
     ]
     
     while True:  # Keep trying indefinitely for rate limits
+        attempt = rate_limit_retries + other_error_retries + 1
+        request_start = time.perf_counter()
         try:
             completion = client.chat.completions.create(
                 # model="gpt-4o-2024-11-20", 
@@ -59,8 +62,15 @@ def call_openai_api(sys_prompt, contents) -> Optional[str]:
                 frequency_penalty=0,
                 presence_penalty=0,
             )
+            record_vlm_response(
+                call_type, time.perf_counter() - request_start, success=True, attempt=attempt
+            )
             return completion.choices[0].message.content
         except openai.RateLimitError as e:
+            record_vlm_response(
+                call_type, time.perf_counter() - request_start, success=False,
+                attempt=attempt, error_type=type(e).__name__
+            )
             rate_limit_retries += 1
             wait_time = min(60 + (rate_limit_retries * 10), 300)
             print(f"Rate limit error ({rate_limit_retries}), waiting {wait_time}s before retry...")
@@ -72,6 +82,10 @@ def call_openai_api(sys_prompt, contents) -> Optional[str]:
                 rate_limit_retries = 0
             continue
         except (openai.APIConnectionError, openai.APITimeoutError, openai.InternalServerError) as e:
+            record_vlm_response(
+                call_type, time.perf_counter() - request_start, success=False,
+                attempt=attempt, error_type=type(e).__name__
+            )
             other_error_retries += 1
             if other_error_retries > max_other_error_retries:
                 print(f"Too many connection/timeout/server errors ({other_error_retries}), giving up")
@@ -81,9 +95,17 @@ def call_openai_api(sys_prompt, contents) -> Optional[str]:
             time.sleep(wait_time)
             continue
         except openai.BadRequestError as e:
+            record_vlm_response(
+                call_type, time.perf_counter() - request_start, success=False,
+                attempt=attempt, error_type=type(e).__name__
+            )
             print(f"Bad request error (likely permanent): {e}")
             return None
         except Exception as e:
+            record_vlm_response(
+                call_type, time.perf_counter() - request_start, success=False,
+                attempt=attempt, error_type=type(e).__name__
+            )
             other_error_retries += 1
             if other_error_retries > max_other_error_retries:
                 print(f"Too many unexpected errors ({other_error_retries}), giving up: {e}")
@@ -414,7 +436,7 @@ def get_prefiltering_classes(question, seen_classes, top_k=10, image_goal=None):
         if len(c) == 2:
             message += f": image {c[1][:10]}..."
     
-    response = call_openai_api(prefiltering_sys, prefiltering_content)
+    response = call_openai_api(prefiltering_sys, prefiltering_content, call_type="prefilter")
     if response is None:
         print("Prefiltering API failed completely, using all classes")
         return sorted(list(seen_classes))[:top_k]
@@ -529,7 +551,7 @@ def self_refine_choice(question, snapshot_img, description, selected_object_clas
     if verbose:
         logging.info(f"Performing self-refinement validation for {task_type} task...")
     
-    response = call_openai_api(sys_prompt, content)
+    response = call_openai_api(sys_prompt, content, call_type="self_refine")
     
     if response is None:
         if verbose:
@@ -665,7 +687,7 @@ def explore_step(step, cfg, verbose=False):
         if verbose:
             logging.info(f"VLM API call attempt {total_iterations}, retries remaining: {retry_bound}")
         
-        response = call_openai_api(sys_prompt, content)
+        response = call_openai_api(sys_prompt, content, call_type="decision")
 
         if response is None:
             logging.warning(f"API call failed, retries remaining: {retry_bound}")

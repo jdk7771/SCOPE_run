@@ -31,6 +31,7 @@ from src.logger_goatbench import Logger
 from src.potential_graph import PotentialGraph
 from src.potential_estimation_gpt_goal import get_potential_estimation
 from src.tsdf_export import save_bev_visualization, save_frontier_gaussian_bev
+from src.vlm_timing import configure_vlm_timing, log_vlm_timing_summary
 
 
 def select_scope_frontier_candidates(tsdf_planner, potential_graph, max_candidates=3):
@@ -55,6 +56,16 @@ def select_scope_frontier_candidates(tsdf_planner, potential_graph, max_candidat
 
 
 def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
+    configure_vlm_timing(
+        cfg.output_dir,
+        {
+            "experiment": str(getattr(cfg, "exp_name", "")),
+            "split": int(split),
+            "start_ratio": float(start_ratio),
+            "end_ratio": float(end_ratio),
+            "scene_name": scene_name_filter or "",
+        },
+    )
     # load the default concept graph config
     cfg_cg = OmegaConf.load(cfg.concept_graph_config_path)
     OmegaConf.resolve(cfg_cg)
@@ -818,6 +829,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
     logger.save_results()
     # aggregate the results from different splits into a single file
     logger.aggregate_results()
+    log_vlm_timing_summary()
 
     logging.info(f"All scenes finish")
 
