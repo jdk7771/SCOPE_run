@@ -1,6 +1,7 @@
 import openai
 from openai import OpenAI
 from src.const import *
+from src.vlm_timing import record_vlm_response
 from typing import Optional
 from PIL import Image
 import io
@@ -101,6 +102,8 @@ def get_potential_estimation(metadata, image) -> Optional[str]:
     ]
     
     while True:  # Keep trying indefinitely for rate limits
+        attempt = rate_limit_retries + other_error_retries + 1
+        request_start = time.perf_counter()
         try:
             completion = client.chat.completions.create(
                 # model="gpt-4o-2024-11-20",
@@ -112,8 +115,10 @@ def get_potential_estimation(metadata, image) -> Optional[str]:
                 frequency_penalty=0,
                 presence_penalty=0,
             )
+            record_vlm_response("frontier_potential", time.perf_counter() - request_start, success=True, attempt=attempt)
             return completion.choices[0].message.content
         except openai.RateLimitError as e:
+            record_vlm_response("frontier_potential", time.perf_counter() - request_start, success=False, attempt=attempt, error_type=type(e).__name__)
             rate_limit_retries += 1
             wait_time = min(60 + (rate_limit_retries * 10), 300)  # Exponential backoff, max 5 minutes
             print(f"Rate limit error in potential estimation ({rate_limit_retries}), waiting {wait_time}s before retry...")
@@ -126,6 +131,7 @@ def get_potential_estimation(metadata, image) -> Optional[str]:
                 rate_limit_retries = 0  # Reset counter after long break
             continue
         except (openai.APIConnectionError, openai.APITimeoutError, openai.InternalServerError) as e:
+            record_vlm_response("frontier_potential", time.perf_counter() - request_start, success=False, attempt=attempt, error_type=type(e).__name__)
             other_error_retries += 1
             if other_error_retries > max_other_error_retries:
                 print(f"Too many connection/timeout/server errors in potential estimation ({other_error_retries}), using default scores")
@@ -135,9 +141,11 @@ def get_potential_estimation(metadata, image) -> Optional[str]:
             time.sleep(wait_time)
             continue
         except openai.BadRequestError as e:
+            record_vlm_response("frontier_potential", time.perf_counter() - request_start, success=False, attempt=attempt, error_type=type(e).__name__)
             print(f"Bad request error in potential estimation (likely permanent): {e}")
             return None
         except Exception as e:
+            record_vlm_response("frontier_potential", time.perf_counter() - request_start, success=False, attempt=attempt, error_type=type(e).__name__)
             other_error_retries += 1
             if other_error_retries > max_other_error_retries:
                 print(f"Too many unexpected errors in potential estimation ({other_error_retries}), using default scores: {e}")
