@@ -33,6 +33,27 @@ from src.potential_estimation_gpt_goal import get_potential_estimation
 from src.tsdf_export import save_bev_visualization, save_frontier_gaussian_bev
 
 
+def select_scope_frontier_candidates(tsdf_planner, potential_graph, max_candidates=3):
+    """Keep the highest SCOPE-scored frontiers and preserve that F1..Fn order."""
+    ranked = []
+    for frontier in tsdf_planner.frontiers:
+        prediction = potential_graph.get_frontier_prediction(frontier.position)
+        if prediction is not None:
+            scores = prediction["scores"]
+            score = float(scores.get("potential_score", 0.0))
+        else:
+            scores = {"potential_score": 3.0, "semantic_richness": 3.0,
+                      "explorability": 3.0, "goal_relevance": 3.0}
+            try:
+                world = potential_graph._voxel_to_world(frontier.position)
+                score = float(potential_graph.get_potential_at_position(np.array([world[0], world[2]])))
+            except Exception:
+                score = 0.0
+        ranked.append((score, int(frontier.frontier_id), frontier, scores))
+    ranked.sort(key=lambda item: (-item[0], item[1]))
+    return ranked[:max(1, int(max_candidates))]
+
+
 def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
     # load the default concept graph config
     cfg_cg = OmegaConf.load(cfg.concept_graph_config_path)
@@ -227,12 +248,16 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                 task_success = False
                 cnt_step = -1
                 n_filtered_snapshots = 0
-                relevant_object_classes = []
+                # Seed the semantic BEV with the known target category.  Later
+                # VLM prefiltering replaces this with SCOPE's relevance ranking.
+                relevant_object_classes = [subtask_metadata["class"]]
 
                 # reset tsdf planner
                 tsdf_planner.max_point = None
                 tsdf_planner.target_point = None
                 max_point_choice = None
+                candidate_frontiers = []
+                structured_decision = None
 
                 if cfg.clear_up_memory_every_subtask and subtask_idx > 0:
                     scene.clear_up_detections()
@@ -451,31 +476,6 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                         potential_text=None
                                     )
 
-                        if cfg.save_visualization:
-                            gaussian_candidates = []
-                            for frontier in tsdf_planner.frontiers:
-                                prediction = potential_graph.get_frontier_prediction(
-                                    frontier.position
-                                )
-                                if prediction is not None:
-                                    gaussian_candidates.append(
-                                        {
-                                            "position": frontier.position,
-                                            "scores": prediction["scores"],
-                                        }
-                                    )
-                            if gaussian_candidates:
-                                gaussian_path = save_frontier_gaussian_bev(
-                                    tsdf_planner,
-                                    os.path.join(eps_potential_dir, "gaussian_bev"),
-                                    f"{global_step}_{subtask_id}",
-                                    gaussian_candidates,
-                                    trajectory_voxels=logger.pts_voxels,
-                                )
-                                logging.info(
-                                    "Saved frontier Gaussian BEV: %s", gaussian_path
-                                )
-
                     # (4) Choose the next navigation point by querying the VLM
                     if cfg.choose_every_step:
                         # if we choose to query vlm every step, we clear the target point every step
@@ -505,7 +505,57 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                             logging.warning(f"No snapshots or frontiers available for VLM query at step {cnt_step}")
                             continue
                         
-                        logging.info(f"Querying VLM with {len(scene.snapshots)} snapshots and {len(tsdf_planner.frontiers)} frontiers")
+                        candidate_ranked = select_scope_frontier_candidates(
+                            tsdf_planner,
+                            potential_graph,
+                            max_candidates=getattr(cfg, "structured_bev_max_frontiers", 3),
+                        )
+                        candidate_frontiers = [item[2] for item in candidate_ranked]
+                        semantic_bev_path = None
+                        gaussian_bev_path = None
+                        if getattr(cfg, "structured_bev_for_vlm", True):
+                            try:
+                                bev_input_dir = os.path.join(eps_potential_dir, "vlm_bev")
+                                agent_voxel = tsdf_planner.habitat2voxel(pts)
+                                bev_name = f"{global_step}_{subtask_id}"
+                                semantic_bev_path = save_bev_visualization(
+                                    tsdf_planner,
+                                    bev_input_dir,
+                                    f"{bev_name}_semantic",
+                                    trajectory_voxels=logger.pts_voxels,
+                                    objects=scene.objects,
+                                    render_resolution=float(getattr(cfg, "tsdf_bev_render_resolution", 0.05)),
+                                    min_object_detections=int(getattr(cfg, "tsdf_bev_min_object_detections", 2)),
+                                    trajectory_arrow_stride=int(getattr(cfg, "tsdf_bev_trajectory_arrow_stride", 1)),
+                                    relevant_classes=relevant_object_classes,
+                                    max_labeled_instances=int(getattr(cfg, "tsdf_bev_max_labeled_instances", 10)),
+                                    fill_irrelevant_instances=bool(getattr(cfg, "tsdf_bev_fill_irrelevant_instances", False)),
+                                    show_irrelevant_outlines=bool(getattr(cfg, "tsdf_bev_show_irrelevant_object_outlines", False)),
+                                    frontier_candidates=candidate_frontiers,
+                                    agent_voxel=agent_voxel,
+                                    agent_yaw=angle,
+                                )
+                                gaussian_candidates = [
+                                    {"position": frontier.position, "scores": scores}
+                                    for _, _, frontier, scores in candidate_ranked
+                                ]
+                                if gaussian_candidates:
+                                    gaussian_bev_path = save_frontier_gaussian_bev(
+                                        tsdf_planner,
+                                        bev_input_dir,
+                                        f"{bev_name}_evidence",
+                                        gaussian_candidates,
+                                        trajectory_voxels=logger.pts_voxels,
+                                        agent_voxel=agent_voxel,
+                                        agent_yaw=angle,
+                                    )
+                            except Exception as exc:
+                                logging.warning("Failed to generate structured BEV VLM inputs: %s", exc)
+
+                        logging.info(
+                            "Querying VLM with %d snapshots and %d SCOPE-scored frontier candidates",
+                            len(scene.snapshots), len(candidate_frontiers),
+                        )
                         
                         # query the VLM for the next navigation point, and the reason for the choice
                         try:
@@ -517,6 +567,9 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                 cfg=cfg,
                                 verbose=True,
                                 potential_graph=potential_graph,
+                                frontier_candidates=candidate_frontiers,
+                                semantic_bev_path=semantic_bev_path,
+                                gaussian_bev_path=gaussian_bev_path,
                             )
                         except Exception as e:
                             logging.error(f"Exception during VLM query: {e}")
@@ -532,8 +585,15 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                         (
                             max_point_choice,
                             n_filtered_snapshots,
-                            relevant_object_classes,
+                            prefiltered_object_classes,
+                            structured_decision,
                         ) = vlm_response
+
+                        if prefiltered_object_classes:
+                            relevant_object_classes = prefiltered_object_classes
+
+                        if structured_decision is not None:
+                            logging.info("Structured VLM decision: %s", json.dumps(structured_decision))
 
                         # set the vlm choice as the navigation target
                         update_success = tsdf_planner.set_next_navigation_point(
@@ -618,6 +678,9 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                 show_irrelevant_outlines=bool(
                                     getattr(cfg, "tsdf_bev_show_irrelevant_object_outlines", False)
                                 ),
+                                frontier_candidates=candidate_frontiers,
+                                agent_voxel=pts_voxel,
+                                agent_yaw=angle,
                             )
                             logging.info(f"Saved semantic BEV: {bev_path}")
                         except Exception as exc:

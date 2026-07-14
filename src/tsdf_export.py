@@ -184,6 +184,60 @@ def _draw_trajectory(ax, trajectory_voxels, scale, arrow_stride):
     ax.scatter(xy[-1, 0], xy[-1, 1], color="#e31a1c", edgecolors="white", s=52, zorder=10)
 
 
+def _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, scale):
+    """Draw the current agent pose using the same voxel convention as SCOPE."""
+    if agent_voxel is None:
+        return
+    point = np.asarray(agent_voxel, dtype=float)[:2]
+    if point.size != 2 or not np.all(np.isfinite(point)):
+        return
+    try:
+        direction = np.asarray(planner.rad2vector(agent_yaw), dtype=float)[:2]
+    except Exception:
+        direction = np.array([1.0, 0.0])
+    norm = np.linalg.norm(direction)
+    if norm < 1e-6:
+        direction = np.array([1.0, 0.0])
+    else:
+        direction /= norm
+    # Axes use x=voxel-y and y=voxel-x.
+    center = np.array([point[1] * scale, point[0] * scale])
+    forward = np.array([direction[1], direction[0]])
+    length = max(8, int(round(0.55 / planner._voxel_size)) * scale)
+    lateral = np.array([-forward[1], forward[0]])
+    triangle = np.vstack(
+        (
+            center + forward * length,
+            center - forward * length * 0.30 + lateral * length * 0.45,
+            center - forward * length * 0.30 - lateral * length * 0.45,
+        )
+    )
+    ax.add_patch(
+        Polygon(
+            triangle,
+            closed=True,
+            facecolor="#e31a1c",
+            edgecolor="white",
+            linewidth=1.3,
+            zorder=12,
+        )
+    )
+    ax.text(center[0], center[1] + length, "Agent", color="black", fontsize=7,
+            ha="center", va="bottom", zorder=13,
+            bbox={"boxstyle": "round,pad=0.14", "fc": "white", "ec": "none", "alpha": 0.8})
+
+
+def _draw_frontier_candidates(ax, frontiers, scale):
+    """Draw the VLM-visible SCOPE frontier candidates as F1, F2, ... ."""
+    for index, frontier in enumerate(frontiers or [], start=1):
+        position = np.asarray(frontier.position, dtype=float)
+        xy = (position[1] * scale, position[0] * scale)
+        ax.scatter(*xy, s=82, c="white", edgecolors="#b100b1", linewidths=1.8, zorder=10)
+        ax.text(xy[0] + 2 * scale, xy[1] - 2 * scale, f"F{index}", fontsize=8,
+                color="black", zorder=11,
+                bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "#b100b1", "alpha": 0.92})
+
+
 def _build_planner_bev(planner, display_height):
     """Build the same 2D state map used by TSDFPlanner.agent_step()."""
     obstacle = planner._obstacle_vol_cpu
@@ -246,6 +300,8 @@ def save_frontier_gaussian_bev(
     name,
     candidates,
     trajectory_voxels=None,
+    agent_voxel=None,
+    agent_yaw=None,
     display_height=1.8,
     min_sigma_m=0.5,
     max_sigma_m=2.0,
@@ -279,7 +335,7 @@ def save_frontier_gaussian_bev(
         sigma_vox = max(sigma_m / planner._voxel_size, 1e-6)
         squared_distance = (x_grid - position[0]) ** 2 + (y_grid - position[1]) ** 2
         field += weight * np.exp(-squared_distance / (2.0 * sigma_vox**2))
-        candidate_info.append((position, weight, sigma_m, index))
+        candidate_info.append((position, weight, sigma_m, index + 1))
 
     # A constant alpha would tint the entire explored region dark: even the
     # very small tails of a 0.5--2 m Gaussian receive the darkest magma
@@ -314,6 +370,9 @@ def save_frontier_gaussian_bev(
         zorder=4,
     )
     _draw_trajectory(ax, trajectory_voxels, 1, 1)
+
+    if agent_yaw is not None:
+        _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, 1)
 
     for position, weight, sigma_m, index in candidate_info:
         ax.scatter(
@@ -353,6 +412,9 @@ def save_bev_visualization(
     fill_irrelevant_instances=False,
     show_irrelevant_outlines=False,
     display_height=1.8,
+    frontier_candidates=None,
+    agent_voxel=None,
+    agent_yaw=None,
 ):
     """Save a semantic, high-resolution BEV image.
 
@@ -394,6 +456,19 @@ def save_bev_visualization(
         max_labeled_instances=max_labeled_instances,
         fill_irrelevant_instances=fill_irrelevant_instances,
         show_irrelevant_outlines=show_irrelevant_outlines,
+    )
+    _draw_frontier_candidates(ax, frontier_candidates, upsample)
+    if agent_yaw is not None:
+        _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, upsample)
+    ax.text(
+        0.01,
+        0.01,
+        "gray: observed free | green: explored free | black: obstacle | colored: observed semantic instance",
+        transform=ax.transAxes,
+        fontsize=7,
+        color="black",
+        bbox={"boxstyle": "round,pad=0.25", "fc": "white", "ec": "none", "alpha": 0.82},
+        zorder=20,
     )
     bev_path = output_dir / f"{name}_bev.png"
     fig.savefig(bev_path, dpi=120, bbox_inches="tight", pad_inches=0)

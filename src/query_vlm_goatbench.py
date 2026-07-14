@@ -2,6 +2,7 @@ import logging
 from typing import Tuple, Optional, Union
 import random
 import numpy as np
+from PIL import Image
 
 from src.eval_utils_gpt_goatbench import explore_step
 from src.utils import resize_image
@@ -17,7 +18,10 @@ def query_vlm_for_response(
     cfg,
     verbose: bool = False,
     potential_graph=None,
-) -> Optional[Tuple[Union[SnapShot, Frontier], int, list]]:
+    frontier_candidates=None,
+    semantic_bev_path=None,
+    gaussian_bev_path=None,
+) -> Optional[Tuple[Union[SnapShot, Frontier], int, list, dict]]:
     # prepare input for vlm
     step_dict = {}
 
@@ -80,13 +84,12 @@ def query_vlm_for_response(
             )
 
     # prepare frontier
-    step_dict["frontier_imgs"] = [
-        frontier.feature for frontier in tsdf_planner.frontiers
-    ]
+    active_frontiers = list(frontier_candidates) if frontier_candidates is not None else list(tsdf_planner.frontiers)
+    step_dict["frontier_imgs"] = [frontier.feature for frontier in active_frontiers]
 
     if potential_graph is not None:
         step_dict["frontier_potential_scores"] = []
-        for frontier in tsdf_planner.frontiers:
+        for frontier in active_frontiers:
             try:
                 frontier_world_pos = potential_graph._voxel_to_world(frontier.position)
                 if len(frontier_world_pos) == 3:
@@ -99,7 +102,14 @@ def query_vlm_for_response(
                 logging.warning(f"Failed to get potential score for frontier: {e}")
                 step_dict["frontier_potential_scores"].append(3.0)
     else:
-        step_dict["frontier_potential_scores"] = [3.0] * len(tsdf_planner.frontiers)
+        step_dict["frontier_potential_scores"] = [3.0] * len(active_frontiers)
+
+    # The maps are generated before this call.  They are visual context for the
+    # high-level VLM only; SCOPE still owns the downstream navigation execution.
+    if semantic_bev_path:
+        step_dict["semantic_bev"] = np.asarray(Image.open(semantic_bev_path).convert("RGB"))
+    if gaussian_bev_path:
+        step_dict["gaussian_bev"] = np.asarray(Image.open(gaussian_bev_path).convert("RGB"))
 
     # prepare egocentric views
     if cfg.egocentric_views:
@@ -129,6 +139,7 @@ def query_vlm_for_response(
             snapshot_crop_mapping,
             reason,
             n_filtered_snapshots,
+            structured_decision,
         ) = explore_step(step_dict, cfg, verbose=verbose)
     except Exception as e:
         logging.error(f"Exception in explore_step: {e}")
@@ -212,16 +223,16 @@ def query_vlm_for_response(
             cluster=[pred_target_obj_id],
         )
 
-        return max_point_choice, n_filtered_snapshots, step_dict.get("prefiltered_classes", [])
+        return max_point_choice, n_filtered_snapshots, step_dict.get("prefiltered_classes", []), structured_decision
     else:  # target_type == "frontier"
         target_index = int(target_index)
-        if target_index < 0 or target_index >= len(tsdf_planner.frontiers):
+        if target_index < 0 or target_index >= len(active_frontiers):
             logging.info(
                 f"Predicted frontier target index out of range: {target_index}, failed!"
             )
             return None
-        target_point = tsdf_planner.frontiers[target_index].position
+        target_point = active_frontiers[target_index].position
         logging.info(f"Next choice: Frontier at {target_point}")
-        pred_target_frontier = tsdf_planner.frontiers[target_index]
+        pred_target_frontier = active_frontiers[target_index]
 
-        return pred_target_frontier, n_filtered_snapshots, step_dict.get("prefiltered_classes", [])
+        return pred_target_frontier, n_filtered_snapshots, step_dict.get("prefiltered_classes", []), structured_decision

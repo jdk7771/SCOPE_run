@@ -62,6 +62,10 @@ tsdf_bev_trajectory_arrow_stride: 1
 tsdf_bev_max_labeled_instances: 5  # only the first N VLM-relevant instances receive labels
 tsdf_bev_fill_irrelevant_instances: false  # true: use stable non-relevant instances to fill unused label slots
 tsdf_bev_show_irrelevant_object_outlines: false  # optionally retain unlabeled gray outlines for non-selected instances
+# Generate the two structured BEVs before every high-level decision and attach
+# them to the VLM prompt.  F1..Fn are sorted by the existing SCOPE potential score.
+structured_bev_for_vlm: true
+structured_bev_max_frontiers: 3
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6
 planner:

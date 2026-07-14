@@ -8,6 +8,7 @@ import time
 import json
 from typing import Optional
 import logging
+import re
 from src.const import *
 
 client = OpenAI(
@@ -131,6 +132,12 @@ def get_step_info(step, verbose=False):
 
     # Get potential scores for frontiers
     frontier_potential_scores = step.get("frontier_potential_scores", [])
+    semantic_bev = step.get("semantic_bev")
+    gaussian_bev = step.get("gaussian_bev")
+    if semantic_bev is not None:
+        semantic_bev = encode_tensor2base64(semantic_bev)
+    if gaussian_bev is not None:
+        gaussian_bev = encode_tensor2base64(gaussian_bev)
 
     # 2.3 get snapshots
     snapshot_classes = {}  # rgb_id -> list of classes
@@ -206,6 +213,8 @@ def get_step_info(step, verbose=False):
         keep_index,
         keep_index_snapshot,
         frontier_potential_scores,
+        semantic_bev,
+        gaussian_bev,
     )
 
 
@@ -220,6 +229,8 @@ def format_explore_prompt(
     egocentric_view=False,
     use_snapshot_class=True,
     image_goal=None,
+    semantic_bev=None,
+    gaussian_bev=None,
 ):
     sys_prompt = "Task: You are an agent in an indoor scene that is able to observe the surroundings and explore the environment. You are tasked with indoor navigation, and you are required to choose either a Snapshot or a Frontier image to explore and find the target object required in the question.\n"
 
@@ -244,7 +255,7 @@ def format_explore_prompt(
     else:
         content.append((text + "\n",))
 
-    text = "Select the Frontier/Snapshot that would help find the answer of the question.\n"
+    text = "Select the memory object or frontier that would best advance the current subtask.\n"
     content.append((text,))
 
     # 3 here is the egocentric views
@@ -253,6 +264,25 @@ def format_explore_prompt(
             "The following is the egocentric view of the agent in forward direction: "
         )
         content.append((text, egocentric_imgs[-1]))
+        content.append(("\n",))
+
+    if semantic_bev is not None:
+        text = (
+            "Structured semantic BEV (HSGM-style): gray is observed traversable space, "
+            "green is explored traversable space, black is obstacle, colored footprints are "
+            "observed semantic instances, orange is trajectory, red triangle is the current agent pose, "
+            "and F1/F2/F3 are the SCOPE frontier candidates. The map is global, not egocentric."
+        )
+        content.append((text, semantic_bev))
+        content.append(("\n",))
+
+    if gaussian_bev is not None:
+        text = (
+            "Frontier future-evidence BEV: each Gaussian center is a candidate frontier endpoint. "
+            "Its weight combines predicted future evidence with current-subtask relevance; its width "
+            "is prediction uncertainty. Use F labels consistently with the semantic BEV."
+        )
+        content.append((text, gaussian_bev))
         content.append(("\n",))
 
     # 4 here is the snapshot images
@@ -283,18 +313,54 @@ def format_explore_prompt(
         for i in range(len(frontier_imgs)):
             if frontier_potential_scores and i < len(frontier_potential_scores):
                 potential_score = frontier_potential_scores[i]
-                content.append((f"Frontier {i} (Potential Score: {potential_score:.2f}) ", frontier_imgs[i]))
+                content.append((f"Frontier F{i + 1} (SCOPE potential score: {potential_score:.2f}) ", frontier_imgs[i]))
             else:
-                content.append((f"Frontier {i} ", frontier_imgs[i]))
+                content.append((f"Frontier F{i + 1} ", frontier_imgs[i]))
             content.append(("\n",))
 
     # 6 here is the format of the answer
-    text = "Please provide your answer in the following format: 'Snapshot i, Object j' or 'Frontier i', where i, j are the index of the snapshot or frontier you choose. "
-    text += "For example, if you choose the fridge in the first snapshot, please return 'Snapshot 0, Object 2', where 2 is the index of the fridge in that snapshot.\n"
-    text += "You can explain the reason for your choice, but put it in a new line after the choice.\n"
+    text = "Return exactly one JSON object and no Markdown. For frontier exploration use: "
+    text += '{"selected_candidate":"F1","decision_type":"explore_frontier","subtask_status":"not_completed","reason":"...","confidence":"medium"}. '
+    text += "For an observed memory object use: "
+    text += '{"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":0,"object_index":2,"subtask_status":"completed" or "not_completed","reason":"...","confidence":"high"}. '
+    text += "F labels are one-based. snapshot_index and object_index are zero-based. Set subtask_status to completed only when the selected visible object is sufficient; the navigation system will still verify it physically.\n"
     content.append((text,))
 
     return sys_prompt, content
+
+
+def _parse_structured_decision(response):
+    """Normalize the structured VLM protocol into SCOPE's legacy choice syntax."""
+    match = re.search(r"\{.*\}", response, flags=re.DOTALL)
+    if match is None:
+        return None, None
+    decision = json.loads(match.group(0))
+    selected = str(decision.get("selected_candidate", "")).strip()
+    decision_type = str(decision.get("decision_type", "")).strip()
+    status = str(decision.get("subtask_status", "not_completed")).strip()
+    if status not in {"completed", "not_completed"}:
+        raise ValueError("subtask_status must be completed or not_completed")
+    if selected.upper().startswith("F"):
+        if decision_type != "explore_frontier":
+            raise ValueError("frontier decision must use explore_frontier")
+        frontier_id = int(selected[1:])
+        if frontier_id < 1:
+            raise ValueError("frontier label must be F1 or greater")
+        normalized = f"frontier {frontier_id - 1}"
+    elif selected.lower() == "object":
+        if decision_type != "go_to_memory_node":
+            raise ValueError("object decision must use go_to_memory_node")
+        snapshot_index = int(decision["snapshot_index"])
+        object_index = int(decision["object_index"])
+        normalized = f"snapshot {snapshot_index}, object {object_index}"
+    else:
+        raise ValueError("selected_candidate must be F<n> or object")
+    decision["selected_candidate"] = selected
+    decision["decision_type"] = decision_type
+    decision["subtask_status"] = status
+    decision.setdefault("reason", "")
+    decision.setdefault("confidence", "medium")
+    return normalized, decision
 
 
 def format_prefiltering_prompt(question, class_list, top_k=10, image_goal=None):
@@ -542,6 +608,8 @@ def explore_step(step, cfg, verbose=False):
         snapshot_id_mapping,
         snapshot_crop_mapping,
         frontier_potential_scores,
+        semantic_bev,
+        gaussian_bev,
     ) = get_step_info(step, verbose)
     
     # Log input statistics
@@ -560,6 +628,8 @@ def explore_step(step, cfg, verbose=False):
         egocentric_view=step.get("use_egocentric_views", False),
         use_snapshot_class=True,
         image_goal=image_goal,
+        semantic_bev=semantic_bev,
+        gaussian_bev=gaussian_bev,
     )
 
     if verbose:
@@ -572,6 +642,7 @@ def explore_step(step, cfg, verbose=False):
     total_iterations = 0
     final_response = None
     final_reason = None
+    final_decision = None
     
     # Track choice history for cycle detection
     choice_history = {}
@@ -579,7 +650,7 @@ def explore_step(step, cfg, verbose=False):
     # Check if we have any valid choices available
     if len(snapshot_full_imgs) == 0 and len(frontier_imgs) == 0:
         logging.error("No snapshots or frontiers available for VLM choice")
-        return None, snapshot_id_mapping, snapshot_crop_mapping, "No choices available", 0
+        return None, snapshot_id_mapping, snapshot_crop_mapping, "No choices available", 0, None
     
     while retry_bound > 0 and total_iterations < max_total_iterations:
         retry_bound -= 1
@@ -594,14 +665,24 @@ def explore_step(step, cfg, verbose=False):
             logging.warning(f"API call failed, retries remaining: {retry_bound}")
             if retry_bound == 0:
                 logging.error("All API retry attempts exhausted")
-                return None, snapshot_id_mapping, snapshot_crop_mapping, "API failed", len(snapshot_full_imgs)
+                return None, snapshot_id_mapping, snapshot_crop_mapping, "API failed", len(snapshot_full_imgs), None
             continue
 
         if verbose:
             logging.info(f"Raw VLM response: {response[:200]}...")
 
         response = response.strip()
-        if "\n" in response:
+        try:
+            normalized_response, structured_decision = _parse_structured_decision(response)
+        except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+            logging.warning("Invalid structured VLM decision '%s': %s", response[:200], exc)
+            if retry_bound == 0:
+                return None, snapshot_id_mapping, snapshot_crop_mapping, "Invalid structured decision", len(snapshot_full_imgs), None
+            continue
+        if normalized_response is not None:
+            response = normalized_response
+            reason = structured_decision.get("reason", "")
+        elif "\n" in response:
             response_parts = response.split("\n")
             response, reason = response_parts[0], response_parts[-1]
         else:
@@ -619,7 +700,7 @@ def explore_step(step, cfg, verbose=False):
             logging.warning(f"Error parsing response format '{original_response}': {e}, retries remaining: {retry_bound}")
             if retry_bound == 0:
                 logging.error(f"Failed to parse response after all retries: {original_response}")
-                return None, snapshot_id_mapping, snapshot_crop_mapping, f"Parse error: {original_response}", len(snapshot_full_imgs)
+                return None, snapshot_id_mapping, snapshot_crop_mapping, f"Parse error: {original_response}", len(snapshot_full_imgs), None
             continue
 
         response_valid = False
@@ -630,14 +711,14 @@ def explore_step(step, cfg, verbose=False):
             if not choice_id.isdigit():
                 logging.warning(f"Invalid snapshot ID format: {choice_id}, retries remaining: {retry_bound}")
                 if retry_bound == 0:
-                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Invalid snapshot ID: {choice_id}", len(snapshot_full_imgs)
+                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Invalid snapshot ID: {choice_id}", len(snapshot_full_imgs), None
                 continue
             
             choice_id_int = int(choice_id)
             if not (0 <= choice_id_int < len(snapshot_full_imgs)):
                 logging.warning(f"Snapshot ID out of range: {choice_id_int} (max: {len(snapshot_full_imgs)-1}), retries remaining: {retry_bound}")
                 if retry_bound == 0:
-                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Snapshot ID out of range: {choice_id_int}", len(snapshot_full_imgs)
+                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Snapshot ID out of range: {choice_id_int}", len(snapshot_full_imgs), None
                 continue
             
             # Parse object choice
@@ -649,19 +730,19 @@ def explore_step(step, cfg, verbose=False):
             except Exception as e:
                 logging.warning(f"Error parsing object choice from '{original_response}': {e}, retries remaining: {retry_bound}")
                 if retry_bound == 0:
-                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Object parse error: {original_response}", len(snapshot_full_imgs)
+                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Object parse error: {original_response}", len(snapshot_full_imgs), None
                 continue
             
             if object_choice_type != "object":
                 logging.warning(f"Invalid object choice type: {object_choice_type}, retries remaining: {retry_bound}")
                 if retry_bound == 0:
-                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Invalid object type: {object_choice_type}", len(snapshot_full_imgs)
+                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Invalid object type: {object_choice_type}", len(snapshot_full_imgs), None
                 continue
             
             if not object_choice_id.isdigit():
                 logging.warning(f"Invalid object ID format: {object_choice_id}, retries remaining: {retry_bound}")
                 if retry_bound == 0:
-                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Invalid object ID: {object_choice_id}", len(snapshot_full_imgs)
+                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Invalid object ID: {object_choice_id}", len(snapshot_full_imgs), None
                 continue
             
             object_choice_id_int = int(object_choice_id)
@@ -671,7 +752,7 @@ def explore_step(step, cfg, verbose=False):
             if not (0 <= object_choice_id_int <= max_object_id):
                 logging.warning(f"Object ID out of range: {object_choice_id_int} (max: {max_object_id}), retries remaining: {retry_bound}")
                 if retry_bound == 0:
-                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Object ID out of range: {object_choice_id_int}", len(snapshot_full_imgs)
+                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Object ID out of range: {object_choice_id_int}", len(snapshot_full_imgs), None
                 continue
             
             response_valid = True
@@ -680,21 +761,21 @@ def explore_step(step, cfg, verbose=False):
             if not choice_id.isdigit():
                 logging.warning(f"Invalid frontier ID format: {choice_id}, retries remaining: {retry_bound}")
                 if retry_bound == 0:
-                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Invalid frontier ID: {choice_id}", len(snapshot_full_imgs)
+                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Invalid frontier ID: {choice_id}", len(snapshot_full_imgs), None
                 continue
             
             choice_id_int = int(choice_id)
             if not (0 <= choice_id_int < len(frontier_imgs)):
                 logging.warning(f"Frontier ID out of range: {choice_id_int} (max: {len(frontier_imgs)-1}), retries remaining: {retry_bound}")
                 if retry_bound == 0:
-                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Frontier ID out of range: {choice_id_int}", len(snapshot_full_imgs)
+                    return None, snapshot_id_mapping, snapshot_crop_mapping, f"Frontier ID out of range: {choice_id_int}", len(snapshot_full_imgs), None
                 continue
             
             response_valid = True
         else:
             logging.warning(f"Invalid choice type: {choice_type}, retries remaining: {retry_bound}")
             if retry_bound == 0:
-                return None, snapshot_id_mapping, snapshot_crop_mapping, f"Invalid choice type: {choice_type}", len(snapshot_full_imgs)
+                return None, snapshot_id_mapping, snapshot_crop_mapping, f"Invalid choice type: {choice_type}", len(snapshot_full_imgs), None
             continue
 
         if response_valid:
@@ -713,6 +794,7 @@ def explore_step(step, cfg, verbose=False):
                         logging.info(f"Choice {choice_key} has been rejected {rejection_count} times, accepting to break cycle")
                     final_response = original_response.lower()
                     final_reason = reason
+                    final_decision = structured_decision
                     break
                 
                 snapshot_idx = int(choice_id)
@@ -746,6 +828,7 @@ def explore_step(step, cfg, verbose=False):
                         logging.info(f"Self-refine confirmed snapshot choice")
                     final_response = original_response.lower()
                     final_reason = reason
+                    final_decision = structured_decision
                     break
                 else:
                     choice_history[choice_key] = rejection_count + 1
@@ -771,11 +854,12 @@ def explore_step(step, cfg, verbose=False):
                     logging.info(f"Accepting {choice_type} choice (no self-refine needed)")
                 final_response = original_response.lower()
                 final_reason = reason
+                final_decision = structured_decision
                 break
 
     if final_response is None:
         logging.error(f"All retry attempts exhausted after {total_iterations} iterations, no valid response obtained")
-        return None, snapshot_id_mapping, snapshot_crop_mapping, "All retries exhausted", len(snapshot_full_imgs)
+        return None, snapshot_id_mapping, snapshot_crop_mapping, "All retries exhausted", len(snapshot_full_imgs), None
 
     if verbose:
         logging.info(f"Final response after {total_iterations} iterations: {final_response}")
@@ -786,4 +870,5 @@ def explore_step(step, cfg, verbose=False):
         snapshot_crop_mapping,
         final_reason,
         len(snapshot_full_imgs),
+        final_decision,
     )
