@@ -1,7 +1,7 @@
 # General
 seed: 3407
 # exp_name: "exp_eval_goatbench"
-exp_name: "episode1_scope_bev"
+exp_name: "hsgm_bev_TEEsavR23oF_ep1_context"
 output_parent_dir: "results"
 scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
 scene_data_path: "/mnt/data/hm3d"
@@ -38,6 +38,7 @@ use_full_obj_list: false
 
 # whether to save visualization (which is slow)
 save_visualization: true
+save_vlm_inputs: true
 
 # the image size for prompting gpt-4o
 prompt_h: 360
@@ -66,7 +67,7 @@ tsdf_bev_show_irrelevant_object_outlines: false  # optionally retain unlabeled g
 # them to the VLM prompt.  F1..Fn are sorted by the existing SCOPE potential score.
 structured_bev_for_vlm: true
 structured_bev_max_frontiers: 3
-structured_bev_fill_context_instances: true  # label stable context objects when target class is not yet observed
+structured_bev_fill_context_instances: true
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6
 planner:
