@@ -66,6 +66,7 @@ tsdf_bev_show_irrelevant_object_outlines: false  # optionally retain unlabeled g
 # them to the VLM prompt.  F1..Fn are sorted by the existing SCOPE potential score.
 structured_bev_for_vlm: true
 structured_bev_max_frontiers: 3
+structured_bev_fill_context_instances: true  # label stable context objects when target class is not yet observed
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6
 planner:

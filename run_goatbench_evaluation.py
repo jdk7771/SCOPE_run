@@ -529,7 +529,14 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                     trajectory_arrow_stride=int(getattr(cfg, "tsdf_bev_trajectory_arrow_stride", 1)),
                                     relevant_classes=relevant_object_classes,
                                     max_labeled_instances=int(getattr(cfg, "tsdf_bev_max_labeled_instances", 10)),
-                                    fill_irrelevant_instances=bool(getattr(cfg, "tsdf_bev_fill_irrelevant_instances", False)),
+                                    # Before the VLM has selected a memory node, it
+                                    # needs nearby context (for example cabinet and
+                                    # worktop when searching for a refrigerator).
+                                    # Keep the target/relevance ranking first, then
+                                    # fill unused label slots with stable instances.
+                                    fill_irrelevant_instances=bool(
+                                        getattr(cfg, "structured_bev_fill_context_instances", True)
+                                    ),
                                     show_irrelevant_outlines=bool(getattr(cfg, "tsdf_bev_show_irrelevant_object_outlines", False)),
                                     frontier_candidates=candidate_frontiers,
                                     agent_voxel=agent_voxel,

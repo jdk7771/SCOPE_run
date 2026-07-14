@@ -21,6 +21,12 @@ Before each VLM query it writes and supplies two images in
 Candidates are sorted by SCOPE's existing potential score, then by stable
 frontier id. The same ordered subset is used in the map, the frontier image
 list, and VLM output, so `F1` always refers to the same executable `Frontier`.
+The decision map labels target/relevance-ranked instances first and then fills
+unused label slots with stable context instances. This preserves useful
+relations such as a refrigerator near a cabinet even before the target category
+has been observed. `vlm_full_inputs/manifest.json` records the source paths of
+both BEV images; their copies are `content_004.png` (semantic) and
+`content_006.png` (evidence) in the current prompt ordering.
 
 The VLM must return a JSON decision. Examples:
 

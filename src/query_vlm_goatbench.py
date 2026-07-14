@@ -108,8 +108,10 @@ def query_vlm_for_response(
     # high-level VLM only; SCOPE still owns the downstream navigation execution.
     if semantic_bev_path:
         step_dict["semantic_bev"] = np.asarray(Image.open(semantic_bev_path).convert("RGB"))
+        step_dict["semantic_bev_source_path"] = str(semantic_bev_path)
     if gaussian_bev_path:
         step_dict["gaussian_bev"] = np.asarray(Image.open(gaussian_bev_path).convert("RGB"))
+        step_dict["gaussian_bev_source_path"] = str(gaussian_bev_path)
 
     # prepare egocentric views
     if cfg.egocentric_views:

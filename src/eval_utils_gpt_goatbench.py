@@ -268,19 +268,21 @@ def format_explore_prompt(
 
     if semantic_bev is not None:
         text = (
-            "Structured semantic BEV (HSGM-style): gray is observed traversable space, "
+            "Input A — Structured semantic BEV (HSGM-style): gray is observed traversable space, "
             "green is explored traversable space, black is obstacle, colored footprints are "
-            "observed semantic instances, orange is trajectory, red triangle is the current agent pose, "
-            "and F1/F2/F3 are the SCOPE frontier candidates. The map is global, not egocentric."
+            "observed semantic instances whose labels are object names, orange is trajectory, red triangle is the current agent pose, "
+            "and F1/F2/F3 are the SCOPE frontier candidates. Use this global map to relate named context objects, avoid already explored space, "
+            "and verify which candidate can reveal the missing evidence."
         )
         content.append((text, semantic_bev))
         content.append(("\n",))
 
     if gaussian_bev is not None:
         text = (
-            "Frontier future-evidence BEV: each Gaussian center is a candidate frontier endpoint. "
+            "Input B — Frontier future-evidence BEV: each Gaussian center is a candidate frontier endpoint. "
             "Its weight combines predicted future evidence with current-subtask relevance; its width "
-            "is prediction uncertainty. Use F labels consistently with the semantic BEV."
+            "is prediction uncertainty. Cross-reference its F label with Input A and the frontier thumbnail below. "
+            "Treat the SCOPE score as evidence, not a command: prefer the candidate whose map context and predicted evidence jointly support the current subtask."
         )
         content.append((text, gaussian_bev))
         content.append(("\n",))
@@ -570,6 +572,10 @@ def _save_vlm_input_bundle(step, cfg, sys_prompt, content, snapshot_id_mapping, 
         "task_type": step.get("task_type"),
         "target_class": step.get("class"),
         "goal_image": step.get("image"),
+        "structured_bev_inputs": {
+            "semantic_bev_source_path": step.get("semantic_bev_source_path"),
+            "gaussian_bev_source_path": step.get("gaussian_bev_source_path"),
+        },
         "snapshot_id_mapping": snapshot_id_mapping,
         "snapshot_crop_mapping": snapshot_crop_mapping,
         "content": [],
