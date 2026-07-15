@@ -44,6 +44,36 @@
 
 两边均启用 `choose_every_step: true`。可将一次 `prefilter` 近似看作一次高层决策事件：robot 到达局部目标、更新观测/地图后，需要再次询问 VLM 是去已有 snapshot，还是继续探索哪个 frontier。
 
+### `prefilter` 是什么
+
+`prefilter` 是 baseline 原本就有的 VLM 调用，并非 Structured-BEV 新增。每次高层决策开始时，系统已经积累了许多检测到的类别和 snapshot。`prefilter` 先向 VLM 询问：“针对当前子任务，哪些已见类别最相关？”它返回最多 `top_k_categories`（当前为 10）个类别。系统据此删除不含这些类别的 snapshot，再把剩余 snapshot、frontier 和任务信息交给最终 `decision`。
+
+它的作用是减少最终 prompt 的对象/图像数量，避免上下文过长；它**不直接决定 robot 的移动方向**。因为两边配置均为 `prefiltering: true`，每个高层决策事件都会各有一次 `prefilter`。
+
+一次高层事件的调用结构如下：
+
+```text
+可选：为新 frontier 做 frontier_potential 评分（每个新 frontier 一次）
+→ prefilter：筛选和当前任务相关的已见类别/snapshot
+→ decision：在剩余 snapshot 与 F1/F2/F3 中做选择
+→ 可选 self_refine：若选择 snapshot，则二次确认该物体确实是目标
+→ 若输出不合法、选择无效或 self_refine 拒绝，则再次调用 decision
+```
+
+BEV 的渲染、Gaussian 计算、F1/F2/F3 排序均为本地计算；Structured-BEV 分支没有为这两张图额外增加一条独立 VLM 请求。
+# VLM的调用更多
+新增的两张图就是在强调 frontier：
+  - 语义 BEV 标出 F1/F2/F3；
+  - Gaussian 图明确显示“哪个未探索区域可能带来与当前任务相关的新证据”；
+  - prompt 明确要求 VLM 将两张图结合，用它们判断哪个 frontier 值得探索。
+
+  所以 VLM 看到这些信息后，更容易作出：
+  {"selected_candidate":"F2","decision_type":"explore_frontier"}
+  而不是：
+  {"selected_candidate":"object","decision_type":"go_to_memory_node"}
+
+  这正是当前运行日志反复出现的情况：连续选 F1/F2/F3。 因此，调用变多的不是代码固定加出来的，而是 Structured-BEV 改变了 VLM 的选择偏好：更探索、少提前停止。
+
 | VLM 调用类型 | Baseline | Structured BEV | 含义 |
 | --- | ---: | ---: | --- |
 | `prefilter` | 11 | 24 | 约 24 次 vs. 11 次高层决策事件 |
@@ -53,6 +83,8 @@
 | **API 请求总数** | **96** | **160** | **+64 请求** |
 
 每次高层事件的最终选择尝试比例相近：baseline 为 `36 / 11 = 3.27`，Structured BEV 为 `75 / 24 = 3.13`。因此没有证据表明 JSON 协议导致了额外的格式错误重试。请求总数增加主要来自更多决策/重规划事件；这与 Structured BEV 每个 subtask 更多的平均 snapshot 数（20.67 vs. 15.56）和平均 frame 数（77.44 vs. 72.11）一致。更细的 TSDF 网格也可能改变 frontier 几何形状与路径。
+
+换言之，Structured-BEV 的 `decision` 数从 36 增到 75，首先是因为 `prefilter`/高层决策事件从 11 增到 24；每个事件内部的平均 `decision` 重试次数反而没有变高（3.13 vs. 3.27）。这次运行中，更多调用来自 agent 更多次到达局部 frontier 后重新观察、重新规划，而不是 BEV 图或 JSON 格式本身额外调用 VLM。
 
 网格大小是地图分辨率，不是物理移动步长。planner 的局部目标距离由独立参数控制；但是更细的地图仍然可能产生不同的 frontier 序列和重规划过程。
 
