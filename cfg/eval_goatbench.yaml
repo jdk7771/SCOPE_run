@@ -1,6 +1,6 @@
 # General
 seed: 3407
-exp_name: "metric-frontier-readable-bev"
+exp_name: "metric-frontier-readable-bev-all-frontiers"
 output_parent_dir: "results"
 scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
 scene_data_path: "/mnt/data/hm3d"
