@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, to_rgba
 from matplotlib.patches import FancyArrowPatch, Polygon
 import numpy as np
-from scipy import ndimage
 
 
 _CANDIDATE_COLORS = ("#9c27b0", "#0072b2", "#d55e00")
@@ -137,13 +136,19 @@ def _draw_object_instances(
         center = polygon_xy.mean(axis=0)
         offset = label_offsets[count % len(label_offsets)]
         label_xy = center + np.asarray(offset) * label_step
+        # Keep text inside the cropped canvas.  The previous clip-only policy
+        # could silently hide every semantic name at a map boundary.
+        x_min, x_max = sorted(ax.get_xlim())
+        y_min, y_max = sorted(ax.get_ylim())
+        label_xy[0] = np.clip(label_xy[0], x_min + 2, x_max - 2)
+        label_xy[1] = np.clip(label_xy[1], y_min + 2, y_max - 2)
         ax.plot(
             [center[0], label_xy[0]], [center[1], label_xy[1]],
             color="#4a4a4a", linewidth=0.45, alpha=0.70, zorder=5,
         )
         ax.text(
             label_xy[0], label_xy[1], class_name,
-            ha="center", va="center", fontsize=6.5, color="black", clip_on=True,
+            ha="center", va="center", fontsize=7.2, color="black",
             bbox={"boxstyle": "round,pad=0.12", "fc": "white", "ec": "none", "alpha": 0.84},
             zorder=6,
         )
@@ -172,7 +177,7 @@ def _draw_trajectory(ax, trajectory_voxels, scale, arrow_stride, crop_origin):
 
 
 def _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, scale, crop_origin):
-    """Draw a compact pose marker; the old 0.7 m triangle hid narrow corridors."""
+    """Draw a compact centre dot and heading arrow without blocking the map."""
     if agent_voxel is None:
         return
     point = _shift_voxels(agent_voxel, crop_origin)[:2]
@@ -186,19 +191,16 @@ def _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, scale, crop_origin):
     direction = np.array([1.0, 0.0]) if norm < 1e-6 else direction / norm
     center = np.array([point[1] * scale, point[0] * scale])
     forward = np.array([direction[1], direction[0]])
-    lateral = np.array([-forward[1], forward[0]])
-    tip = 0.22 / planner._voxel_size * scale
-    back = 0.08 / planner._voxel_size * scale
-    half_width = 0.07 / planner._voxel_size * scale
-    triangle = np.vstack((
-        center + forward * tip,
-        center - forward * back + lateral * half_width,
-        center - forward * back - lateral * half_width,
-    ))
+    arrow_length = 0.28 / planner._voxel_size * scale
+    ax.scatter(
+        center[0], center[1], s=34, c="#1565c0", edgecolors="white",
+        linewidths=0.9, zorder=14,
+    )
     ax.add_patch(
-        Polygon(
-            triangle, closed=True, facecolor="#e31a1c", edgecolor="white",
-            linewidth=0.8, zorder=14,
+        FancyArrowPatch(
+            posA=tuple(center), posB=tuple(center + forward * arrow_length),
+            arrowstyle="-|>", mutation_scale=9, linewidth=1.8,
+            color="#e31a1c", zorder=15,
         )
     )
 
@@ -231,11 +233,6 @@ def _build_planner_bev(planner, display_height):
     explored = np.any(planner._explore_vol_cpu > 0, axis=2)
     observed = np.any(planner._weight_vol_cpu > 0, axis=2)
     obstacle_slice = obstacle[:, :, height_index]
-    kernel_size = max(1, int(round(0.3 / planner._voxel_size)))
-    obstacle_neighborhood = ndimage.convolve(
-        obstacle_slice.astype(float), np.ones((kernel_size, kernel_size)),
-        mode="constant", cval=0.0,
-    )
 
     # Pale blue = genuinely unobserved/unknown.  It replaces the old white
     # canvas whose meaning was absent from both the image and VLM prompt.
@@ -243,9 +240,12 @@ def _build_planner_bev(planner, display_height):
     bev[observed & ~unoccupied] = (230, 230, 230)
     bev[unoccupied] = (200, 200, 200)
     bev[explored & unoccupied] = (194, 246, 198)
-    bev[(obstacle_neighborhood > 0) & (obstacle_neighborhood < kernel_size**2 / 2)] = (100, 100, 100)
-    bev[obstacle_neighborhood >= kernel_size**2 / 2] = (0, 0, 0)
-    support = observed | explored | unoccupied | (obstacle_neighborhood > 0)
+    # This is a VLM display map, not the collision map.  Do not visually
+    # inflate obstacles by 0.3 m: on a 5 cm grid it produced thick black walls
+    # that swallowed corridor and object context.  Collision inflation remains
+    # untouched inside the planner itself.
+    bev[obstacle_slice] = (0, 0, 0)
+    support = observed | explored | unoccupied | obstacle_slice
     return bev, unoccupied, support
 
 

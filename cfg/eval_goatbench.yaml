@@ -59,7 +59,7 @@ tsdf_grid_size: 0.05
 tsdf_bev_render_resolution: 0.05
 tsdf_bev_min_object_detections: 2
 tsdf_bev_trajectory_arrow_stride: 4
-tsdf_bev_max_labeled_instances: 5  # only the first N VLM-relevant instances receive labels
+tsdf_bev_max_labeled_instances: 8  # named high-confidence semantic context for the VLM
 tsdf_bev_fill_irrelevant_instances: false  # true: use stable non-relevant instances to fill unused label slots
 tsdf_bev_show_irrelevant_object_outlines: false  # optionally retain unlabeled gray outlines for non-selected instances
 tsdf_bev_crop_padding_m: 1.5

@@ -1,4 +1,5 @@
 import os
+import shutil
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"  # disable warning
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -572,6 +573,23 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                         crop_padding_m=float(getattr(cfg, "tsdf_bev_crop_padding_m", 1.5)),
                                         min_crop_size_m=float(getattr(cfg, "tsdf_bev_min_crop_size_m", 6.0)),
                                     )
+                                    # Keep an inspection copy beside semantic BEVs.
+                                    # This is the exact Gaussian image attached to the
+                                    # VLM prompt, not a post-hoc reconstruction.
+                                    if gaussian_bev_path:
+                                        gaussian_vis_dir = os.path.join(
+                                            logger.episode_dir,
+                                            "visualization",
+                                            "bev_gaussian",
+                                        )
+                                        os.makedirs(gaussian_vis_dir, exist_ok=True)
+                                        shutil.copy2(
+                                            gaussian_bev_path,
+                                            os.path.join(
+                                                gaussian_vis_dir,
+                                                f"{bev_name}_gaussian_bev.png",
+                                            ),
+                                        )
                             except Exception as exc:
                                 logging.warning("Failed to generate structured BEV VLM inputs: %s", exc)
 
@@ -695,8 +713,11 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                 max_labeled_instances=int(
                                     getattr(cfg, "tsdf_bev_max_labeled_instances", 10)
                                 ),
+                                # Match the decision BEV: when prefilter has no
+                                # matching class, fill slots with stable context
+                                # so object names never disappear from inspection.
                                 fill_irrelevant_instances=bool(
-                                    getattr(cfg, "tsdf_bev_fill_irrelevant_instances", False)
+                                    getattr(cfg, "structured_bev_fill_context_instances", True)
                                 ),
                                 show_irrelevant_outlines=bool(
                                     getattr(cfg, "tsdf_bev_show_irrelevant_object_outlines", False)

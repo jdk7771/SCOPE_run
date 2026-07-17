@@ -72,3 +72,11 @@ python -m py_compile src/tsdf_planner.py src/tsdf_export.py \
 3. 本分支，TSDF=0.05 m、物理尺度前沿和可读 BEV。
 
 建议固定 VLM 温度或至少重复多个运行，以避免 `temperature=0.7` 的调用随机性被错误归因给 TSDF 分辨率。
+
+## 同日回归修复
+
+第一次可读性改动后，实际检查发现三项不符合需求的回归，已在同一分支修正：
+
+- inspection semantic BEV 错误地关闭了 context fill，导致物品名称可能全部消失；现在与决策图一致，稳定显示最多 8 个高置信物品类别名；
+- VLM 显示层不应把障碍按 0.3 m 膨胀成大块黑色；现在黑色只表示实际障碍 voxel。规划器的碰撞膨胀逻辑未改；
+- Gaussian 虽仍作为 VLM Input B 生成，但此前只位于 `potential_graph/vlm_bev/`；现在会把**同一文件**额外复制到 `visualization/bev_gaussian/`，与 semantic BEV 同级保存，便于逐步核查。
