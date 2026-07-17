@@ -4,8 +4,9 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, to_rgba
-from matplotlib.patches import Circle, FancyArrowPatch
+from matplotlib.patches import FancyArrowPatch
 from matplotlib.path import Path as MplPath
+from scipy import ndimage
 import numpy as np
 
 
@@ -66,6 +67,65 @@ def _point_has_support(mask, point, radius_voxels):
     return bool(x0 < x1 and y0 < y1 and np.any(mask[x0:x1, y0:y1]))
 
 
+def _semantic_shape_from_footprint(support, footprint, anchor, voxel_size, dilation_m=0.10):
+    """Extract a compact observed TSDF shape inside a valid object footprint.
+
+    The ConceptGraph OBB supplies only a candidate region.  The final shape is
+    made from actual obstacle voxels inside it, lightly dilated for legibility,
+    and restricted to the component nearest the tracked centre.
+    """
+    footprint = np.asarray(footprint, dtype=float)
+    lower = np.floor(np.min(footprint, axis=0)).astype(int) - 1
+    upper = np.ceil(np.max(footprint, axis=0)).astype(int) + 2
+    lower = np.maximum(lower, 0)
+    upper = np.minimum(upper, np.asarray(support.shape))
+    if np.any(upper <= lower):
+        return None
+    shape = tuple((upper - lower).astype(int))
+    local_footprint = footprint - lower
+    grid_rows, grid_cols = np.mgrid[:shape[0], :shape[1]]
+    local_points = np.column_stack((grid_rows.ravel(), grid_cols.ravel()))
+    raw_mask = MplPath(local_footprint).contains_points(local_points, radius=1e-9).reshape(shape)
+    observed_shape = raw_mask & support[lower[0]:upper[0], lower[1]:upper[1]]
+    if np.count_nonzero(observed_shape) < 1:
+        return None
+
+    radius = max(1, int(round(float(dilation_m) / voxel_size)))
+    observed_shape = ndimage.binary_dilation(observed_shape, iterations=radius) & raw_mask
+    # Do not apply a closing/erosion pass here: early TSDF observations can be
+    # only one or two valid surface voxels, and closing would erase them.
+    labels, component_count = ndimage.label(observed_shape)
+    if component_count == 0:
+        return None
+
+    local_anchor = np.asarray(anchor, dtype=float) - lower
+    best_label, best_distance = None, float("inf")
+    for label in range(1, component_count + 1):
+        component_rows, component_cols = np.nonzero(labels == label)
+        distances = (component_rows - local_anchor[0]) ** 2 + (component_cols - local_anchor[1]) ** 2
+        distance = float(np.min(distances))
+        if distance < best_distance:
+            best_label, best_distance = label, distance
+    semantic_shape = labels == best_label
+    component_rows, component_cols = np.nonzero(semantic_shape)
+    semantic_anchor = np.array(
+        [component_rows.mean() + lower[0], component_cols.mean() + lower[1]], dtype=float
+    )
+    return semantic_shape, lower.astype(float), semantic_anchor
+
+
+def _shape_contains_trajectory(shape_mask, shape_origin, trajectory):
+    """Whether any recorded trajectory cell falls inside an observed semantic shape."""
+    if trajectory is None or len(trajectory) == 0:
+        return False
+    local = np.rint(np.asarray(trajectory, dtype=float)[:, :2] - shape_origin).astype(int)
+    valid = (
+        (local[:, 0] >= 0) & (local[:, 0] < shape_mask.shape[0]) &
+        (local[:, 1] >= 0) & (local[:, 1] < shape_mask.shape[1])
+    )
+    return bool(np.any(shape_mask[local[valid, 0], local[valid, 1]])) if np.any(valid) else False
+
+
 def _prepare_semantic_instances(
     planner,
     objects,
@@ -77,6 +137,7 @@ def _prepare_semantic_instances(
     max_footprint_area_m2=6.0,
     max_extent_m=4.0,
     support_radius_m=0.4,
+    shape_dilation_m=0.10,
 ):
     """Select only TSDF-consistent object anchors for a decision BEV.
 
@@ -138,10 +199,18 @@ def _prepare_semantic_instances(
         if not _point_has_support(physical_support, anchor, support_radius_voxels):
             continue
 
-        # A valid static object's footprint cannot contain the executed path.
-        # This catches the large, tilted bathtub-like outliers in the reported
-        # episode without treating a normal nearby object as invalid.
-        if trajectory is not None and len(trajectory) and MplPath(footprint).contains_points(trajectory).any():
+        semantic_shape = _semantic_shape_from_footprint(
+            physical_support, footprint, anchor, planner._voxel_size,
+            dilation_m=shape_dilation_m,
+        )
+        if semantic_shape is None:
+            continue
+        shape_mask, shape_origin, semantic_anchor = semantic_shape
+
+        # A static semantic region may not cover a recorded navigable path.
+        # The reported bathtub failure is rejected either here or by the raw
+        # OBB size limits above; normal nearby furniture remains valid.
+        if _shape_contains_trajectory(shape_mask, shape_origin, trajectory):
             continue
 
         class_name = str(obj.get("class_name", "object"))
@@ -152,7 +221,9 @@ def _prepare_semantic_instances(
                 "class_name": class_name,
                 "class_rank": class_rank,
                 "num_detections": int(obj.get("num_detections", 0)),
-                "anchor": anchor,
+                "anchor": semantic_anchor,
+                "shape_mask": shape_mask,
+                "shape_origin": shape_origin,
             }
         )
 
@@ -185,31 +256,31 @@ def _shift_voxels(points, crop_origin):
     return array
 
 
-def _draw_object_instances(ax, planner, instances, scale, crop_origin, marker_radius_m=0.16):
-    """Draw compact, validated semantic anchors rather than raw tracker OBBs."""
+def _draw_object_instances(ax, planner, instances, scale, crop_origin):
+    """Draw TSDF-supported semantic regions and their concise class labels."""
     if not instances:
         return 0
 
     cmap = plt.colormaps.get_cmap("tab20")
     label_step = max(2, int(round(0.30 / planner._voxel_size))) * scale
     label_offsets = [(1, -1), (1, 1), (-1, -1), (-1, 1), (2, 0), (-2, 0)]
-    marker_radius = max(1.2, marker_radius_m / planner._voxel_size) * scale
     count = 0
     for instance in instances:
         anchor = _shift_voxels(instance["anchor"], crop_origin)
         center = np.array([anchor[1] * scale, anchor[0] * scale])
         color_index = int(instance["obj_id"]) if instance["class_rank"] is None else instance["class_rank"]
         color = cmap(color_index % cmap.N)
-        ax.add_patch(
-            Circle(
-                center,
-                radius=marker_radius,
-                facecolor=color,
-                edgecolor="#333333",
-                linewidth=0.8,
-                alpha=0.82,
-                zorder=5,
-            )
+        shape_origin = _shift_voxels(instance["shape_origin"], crop_origin)
+        shape_mask = instance["shape_mask"]
+        rows = np.arange(shape_mask.shape[0]) + shape_origin[0]
+        cols = np.arange(shape_mask.shape[1]) + shape_origin[1]
+        ax.contourf(
+            cols * scale, rows * scale, shape_mask.astype(np.uint8),
+            levels=[0.5, 1.5], colors=[color], alpha=0.48, zorder=5,
+        )
+        ax.contour(
+            cols * scale, rows * scale, shape_mask.astype(np.uint8),
+            levels=[0.5], colors=["#333333"], linewidths=0.70, zorder=6,
         )
         offset = label_offsets[count % len(label_offsets)]
         label_xy = center + np.asarray(offset) * label_step
@@ -455,8 +526,8 @@ def save_bev_visualization(
     max_labeled_instances=10, fill_irrelevant_instances=False,
     show_irrelevant_outlines=False, display_height=1.8, frontier_candidates=None,
     agent_voxel=None, agent_yaw=None, crop_padding_m=1.5, min_crop_size_m=6.0,
-    semantic_marker_radius_m=0.16, semantic_max_footprint_area_m2=6.0,
-    semantic_max_extent_m=4.0, semantic_support_radius_m=0.4,
+    semantic_max_footprint_area_m2=6.0, semantic_max_extent_m=4.0,
+    semantic_support_radius_m=0.4, semantic_shape_dilation_m=0.10,
 ):
     """Save a compact semantic BEV for VLM input.
 
@@ -477,6 +548,7 @@ def save_bev_visualization(
         max_footprint_area_m2=float(semantic_max_footprint_area_m2),
         max_extent_m=float(semantic_max_extent_m),
         support_radius_m=float(semantic_support_radius_m),
+        shape_dilation_m=float(semantic_shape_dilation_m),
     )
     positions = [np.asarray(frontier.position, dtype=float)[:2] for frontier in (frontier_candidates or [])]
     positions.extend(instance["anchor"] for instance in semantic_instances)
@@ -486,10 +558,7 @@ def save_bev_visualization(
     )
     fig, ax = _new_bev_figure(bev)
     _draw_trajectory(ax, trajectory_voxels, 1, trajectory_arrow_stride, crop_origin)
-    _draw_object_instances(
-        ax, planner, semantic_instances, 1, crop_origin,
-        marker_radius_m=float(semantic_marker_radius_m),
-    )
+    _draw_object_instances(ax, planner, semantic_instances, 1, crop_origin)
     _draw_frontier_candidates(ax, frontier_candidates, 1, crop_origin)
     _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, 1, crop_origin)
     ax.text(

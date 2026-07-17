@@ -555,10 +555,10 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                     agent_yaw=angle,
                                     crop_padding_m=float(getattr(cfg, "tsdf_bev_crop_padding_m", 1.5)),
                                     min_crop_size_m=float(getattr(cfg, "tsdf_bev_min_crop_size_m", 6.0)),
-                                    semantic_marker_radius_m=float(getattr(cfg, "tsdf_bev_semantic_marker_radius_m", 0.16)),
                                     semantic_max_footprint_area_m2=float(getattr(cfg, "tsdf_bev_semantic_max_footprint_area_m2", 6.0)),
                                     semantic_max_extent_m=float(getattr(cfg, "tsdf_bev_semantic_max_extent_m", 4.0)),
                                     semantic_support_radius_m=float(getattr(cfg, "tsdf_bev_semantic_support_radius_m", 0.4)),
+                                    semantic_shape_dilation_m=float(getattr(cfg, "tsdf_bev_semantic_shape_dilation_m", 0.10)),
                                 )
                                 gaussian_candidates = [
                                     {"position": frontier.position, "scores": scores}
@@ -731,10 +731,10 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                 agent_yaw=angle,
                                 crop_padding_m=float(getattr(cfg, "tsdf_bev_crop_padding_m", 1.5)),
                                 min_crop_size_m=float(getattr(cfg, "tsdf_bev_min_crop_size_m", 6.0)),
-                                semantic_marker_radius_m=float(getattr(cfg, "tsdf_bev_semantic_marker_radius_m", 0.16)),
                                 semantic_max_footprint_area_m2=float(getattr(cfg, "tsdf_bev_semantic_max_footprint_area_m2", 6.0)),
                                 semantic_max_extent_m=float(getattr(cfg, "tsdf_bev_semantic_max_extent_m", 4.0)),
                                 semantic_support_radius_m=float(getattr(cfg, "tsdf_bev_semantic_support_radius_m", 0.4)),
+                                semantic_shape_dilation_m=float(getattr(cfg, "tsdf_bev_semantic_shape_dilation_m", 0.10)),
                             )
                             logging.info(f"Saved semantic BEV: {bev_path}")
                         except Exception as exc:

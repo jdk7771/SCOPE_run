@@ -291,8 +291,9 @@ def format_explore_prompt(
     if semantic_bev is not None:
         text = (
             "Input A — Structured semantic BEV: blue is unknown or unobserved space, gray is observed traversable space, "
-            "green is explored traversable space, and black is obstacle. Colored compact markers are TSDF-validated semantic anchors; "
-            "their labels are object class names only, and a marker gives an approximate object location rather than object extent. "
+            "green is explored traversable space, and black is obstacle. Colored compact regions are TSDF-validated semantic footprints; "
+            "their labels are object class names only. Their boundaries follow locally observed obstacle support and are approximate, "
+            "not raw 3D tracker boxes or precise instance masks. "
             "Orange is trajectory, the blue dot and compact red arrow are the current agent and heading, "
             "and colored F1/F2/F3 markers are the SCOPE frontier candidates. Use the map to relate named context, avoid already explored space, "
             "and identify which candidate can reveal missing evidence."
