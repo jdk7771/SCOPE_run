@@ -1,12 +1,19 @@
-"""Persistence helpers for inspecting SCOPE's live TSDF planner state."""
+"""Readable, metric-consistent BEV exports for SCOPE's live TSDF planner."""
 
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.colors import LinearSegmentedColormap, to_rgba
 from matplotlib.patches import FancyArrowPatch, Polygon
 import numpy as np
 from scipy import ndimage
+
+
+_CANDIDATE_COLORS = ("#9c27b0", "#0072b2", "#d55e00")
+
+
+def _candidate_color(index):
+    return _CANDIDATE_COLORS[(index - 1) % len(_CANDIDATE_COLORS)]
 
 
 def _object_footprint_voxels(planner, obj):
@@ -27,34 +34,39 @@ def _object_footprint_voxels(planner, obj):
     return points[np.argsort(angles)]
 
 
+def _shift_voxels(points, crop_origin):
+    """Shift planner [voxel-x, voxel-y] coordinates into a cropped BEV."""
+    array = np.asarray(points, dtype=float).copy()
+    if array.ndim == 1:
+        array[:2] -= crop_origin
+    else:
+        array[:, :2] -= crop_origin
+    return array
+
+
 def _draw_object_instances(
     ax,
     planner,
     objects,
     scale,
     min_detections,
+    crop_origin,
     relevant_classes=None,
     max_labeled_instances=10,
     fill_irrelevant_instances=False,
     show_irrelevant_outlines=False,
 ):
-    """Draw task-relevant object footprints and optional context outlines.
-
-    ``relevant_classes`` preserves the VLM prefilter ranking. Instances from
-    those classes are shown first. By default, non-relevant instances do not
-    consume label slots; ``fill_irrelevant_instances`` enables that diagnostic
-    fallback when desired.
-    """
+    """Draw concise object context without rank prefixes or opaque fills."""
     if not objects:
         return 0
 
     cmap = plt.colormaps.get_cmap("tab20")
     ranked_classes = list(dict.fromkeys(relevant_classes or []))
-    if relevant_classes is None:
-        relevant_class_rank = None  # Preserve the legacy all-instance view.
-    else:
-        relevant_class_rank = {class_name: rank for rank, class_name in enumerate(ranked_classes)}
-
+    relevant_class_rank = (
+        None
+        if relevant_classes is None
+        else {class_name: rank for rank, class_name in enumerate(ranked_classes)}
+    )
     candidates = []
     for obj_id, obj in objects.items():
         if int(obj.get("num_detections", 0)) < min_detections:
@@ -67,7 +79,6 @@ def _draw_object_instances(
         candidates.append((obj_id, obj, footprint, class_name, class_rank))
 
     if relevant_class_rank is not None:
-        # Relevant categories follow the VLM order; stability breaks ties.
         candidates.sort(
             key=lambda item: (
                 item[4] is None,
@@ -79,30 +90,22 @@ def _draw_object_instances(
     else:
         candidates.sort(key=lambda item: (-int(item[1].get("num_detections", 0)), int(item[0])))
 
-    if relevant_class_rank is None or fill_irrelevant_instances:
-        label_pool = candidates
-    else:
-        label_pool = [candidate for candidate in candidates if candidate[4] is not None]
-    limit = max(0, int(max_labeled_instances))
-    labeled_candidates = label_pool if limit == 0 else label_pool[:limit]
-    labeled_ids = {obj_id for obj_id, *_ in labeled_candidates}
-
-    # Nearby objects are common in indoor scenes. Place their labels just next
-    # to the footprint (about 0.35--0.7 m), without leader lines.
-    label_step = max(2, int(round(0.35 / planner._voxel_size))) * scale
-    label_offsets = [
-        (1, -1), (1, 1), (-1, -1), (-1, 1),
-        (2, 0), (-2, 0), (2, 1), (-2, 1),
-        (0, -2), (0, 2),
+    label_pool = candidates if (relevant_class_rank is None or fill_irrelevant_instances) else [
+        candidate for candidate in candidates if candidate[4] is not None
     ]
+    limit = max(0, int(max_labeled_instances))
+    labeled_ids = {obj_id for obj_id, *_ in (label_pool if limit == 0 else label_pool[:limit])}
+
+    # Text uses only the class name: R#/C prefixes and tracker IDs have no
+    # decision semantics and made the old BEV materially harder to read.
+    label_step = max(2, int(round(0.24 / planner._voxel_size))) * scale
+    label_offsets = [(1, -1), (1, 1), (-1, -1), (-1, 1), (2, 0), (-2, 0)]
     count = 0
-    for obj_id, obj, footprint, class_name, class_rank in candidates:
+    for obj_id, _, footprint, class_name, class_rank in candidates:
         is_labeled = obj_id in labeled_ids
         if not is_labeled and not show_irrelevant_outlines:
             continue
-
-        # Matplotlib image axes are (x=voxel-y, y=voxel-x), matching SCOPE's
-        # planner visualization convention.
+        footprint = _shift_voxels(footprint, crop_origin)
         polygon_xy = np.column_stack((footprint[:, 1] * scale, footprint[:, 0] * scale))
         if not is_labeled:
             ax.add_patch(
@@ -110,9 +113,9 @@ def _draw_object_instances(
                     polygon_xy,
                     closed=True,
                     facecolor="none",
-                    edgecolor="#6f6f6f",
-                    linewidth=0.7,
-                    alpha=0.60,
+                    edgecolor="#777777",
+                    linewidth=0.55,
+                    alpha=0.42,
                     zorder=4,
                 )
             )
@@ -125,70 +128,54 @@ def _draw_object_instances(
                 polygon_xy,
                 closed=True,
                 facecolor=color,
-                edgecolor="black",
-                linewidth=1.2,
-                alpha=0.58,
+                edgecolor="#333333",
+                linewidth=0.9,
+                alpha=0.28,
                 zorder=5,
             )
         )
         center = polygon_xy.mean(axis=0)
-        if class_rank is not None:
-            rank_prefix = f"R#{class_rank + 1} "
-        elif relevant_class_rank is not None:
-            rank_prefix = "C "
-        else:
-            rank_prefix = ""
         offset = label_offsets[count % len(label_offsets)]
         label_xy = center + np.asarray(offset) * label_step
+        ax.plot(
+            [center[0], label_xy[0]], [center[1], label_xy[1]],
+            color="#4a4a4a", linewidth=0.45, alpha=0.70, zorder=5,
+        )
         ax.text(
-            label_xy[0],
-            label_xy[1],
-            f"{rank_prefix}{obj_id}: {class_name}",
-            ha="center",
-            va="center",
-            fontsize=7,
-            color="black",
-            bbox={"boxstyle": "round,pad=0.18", "fc": "white", "ec": "none", "alpha": 0.82},
+            label_xy[0], label_xy[1], class_name,
+            ha="center", va="center", fontsize=6.5, color="black", clip_on=True,
+            bbox={"boxstyle": "round,pad=0.12", "fc": "white", "ec": "none", "alpha": 0.84},
             zorder=6,
         )
         count += 1
     return count
 
 
-def _draw_trajectory(ax, trajectory_voxels, scale, arrow_stride):
-    """Draw the executed subtask trajectory as an orange path with direction arrows."""
+def _draw_trajectory(ax, trajectory_voxels, scale, arrow_stride, crop_origin):
+    """Draw the executed subtask trajectory with sparse directional arrows."""
     if trajectory_voxels is None or len(trajectory_voxels) < 2:
         return
-
-    trajectory = np.asarray(trajectory_voxels, dtype=float)
+    trajectory = _shift_voxels(trajectory_voxels, crop_origin)
     xy = np.column_stack((trajectory[:, 1] * scale, trajectory[:, 0] * scale))
-    ax.plot(xy[:, 0], xy[:, 1], color="#ff8c00", linewidth=2.0, zorder=8)
-    ax.scatter(xy[0, 0], xy[0, 1], color="#1f77b4", edgecolors="white", s=42, zorder=10)
-    ax.text(xy[0, 0], xy[0, 1], " S", color="#1f77b4", fontsize=7, va="bottom", zorder=10)
-
+    ax.plot(xy[:, 0], xy[:, 1], color="#ff8c00", linewidth=1.4, zorder=8)
+    ax.scatter(xy[0, 0], xy[0, 1], color="#1f77b4", edgecolors="white", s=24, zorder=10)
     stride = max(1, int(arrow_stride))
     for start, end in zip(xy[:-1:stride], xy[1::stride]):
         if np.linalg.norm(end - start) < 1e-6:
             continue
         ax.add_patch(
             FancyArrowPatch(
-                posA=tuple(start),
-                posB=tuple(end),
-                arrowstyle="-|>",
-                mutation_scale=10,
-                linewidth=1.5,
-                color="#ff8c00",
-                zorder=9,
+                posA=tuple(start), posB=tuple(end), arrowstyle="-|>",
+                mutation_scale=7, linewidth=1.0, color="#ff8c00", zorder=9,
             )
         )
-    ax.scatter(xy[-1, 0], xy[-1, 1], color="#e31a1c", edgecolors="white", s=52, zorder=10)
 
 
-def _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, scale):
-    """Draw the current agent pose using the same voxel convention as SCOPE."""
+def _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, scale, crop_origin):
+    """Draw a compact pose marker; the old 0.7 m triangle hid narrow corridors."""
     if agent_voxel is None:
         return
-    point = np.asarray(agent_voxel, dtype=float)[:2]
+    point = _shift_voxels(agent_voxel, crop_origin)[:2]
     if point.size != 2 or not np.all(np.isfinite(point)):
         return
     try:
@@ -196,54 +183,45 @@ def _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, scale):
     except Exception:
         direction = np.array([1.0, 0.0])
     norm = np.linalg.norm(direction)
-    if norm < 1e-6:
-        direction = np.array([1.0, 0.0])
-    else:
-        direction /= norm
-    # Axes use x=voxel-y and y=voxel-x.
+    direction = np.array([1.0, 0.0]) if norm < 1e-6 else direction / norm
     center = np.array([point[1] * scale, point[0] * scale])
     forward = np.array([direction[1], direction[0]])
-    length = max(8, int(round(0.55 / planner._voxel_size)) * scale)
     lateral = np.array([-forward[1], forward[0]])
-    triangle = np.vstack(
-        (
-            center + forward * length,
-            center - forward * length * 0.30 + lateral * length * 0.45,
-            center - forward * length * 0.30 - lateral * length * 0.45,
-        )
-    )
+    tip = 0.22 / planner._voxel_size * scale
+    back = 0.08 / planner._voxel_size * scale
+    half_width = 0.07 / planner._voxel_size * scale
+    triangle = np.vstack((
+        center + forward * tip,
+        center - forward * back + lateral * half_width,
+        center - forward * back - lateral * half_width,
+    ))
     ax.add_patch(
         Polygon(
-            triangle,
-            closed=True,
-            facecolor="#e31a1c",
-            edgecolor="white",
-            linewidth=1.3,
-            zorder=12,
+            triangle, closed=True, facecolor="#e31a1c", edgecolor="white",
+            linewidth=0.8, zorder=14,
         )
     )
-    ax.text(center[0], center[1] + length, "Agent", color="black", fontsize=7,
-            ha="center", va="bottom", zorder=13,
-            bbox={"boxstyle": "round,pad=0.14", "fc": "white", "ec": "none", "alpha": 0.8})
 
 
-def _draw_frontier_candidates(ax, frontiers, scale):
-    """Draw the VLM-visible SCOPE frontier candidates as F1, F2, ... ."""
+def _draw_frontier_candidates(ax, frontiers, scale, crop_origin):
+    """Draw F1..Fn with stable distinct colors in both BEV inputs."""
     for index, frontier in enumerate(frontiers or [], start=1):
-        position = np.asarray(frontier.position, dtype=float)
+        position = _shift_voxels(frontier.position, crop_origin)
         xy = (position[1] * scale, position[0] * scale)
-        ax.scatter(*xy, s=82, c="white", edgecolors="#b100b1", linewidths=1.8, zorder=10)
-        ax.text(xy[0] + 2 * scale, xy[1] - 2 * scale, f"F{index}", fontsize=8,
-                color="black", zorder=11,
-                bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "#b100b1", "alpha": 0.92})
+        color = _candidate_color(index)
+        ax.scatter(*xy, s=56, c="white", edgecolors=color, linewidths=1.7, zorder=11)
+        ax.text(
+            xy[0] + 1.5 * scale, xy[1] - 1.5 * scale, f"F{index}", fontsize=7,
+            color="black", zorder=12, clip_on=True,
+            bbox={"boxstyle": "round,pad=0.12", "fc": "white", "ec": color, "alpha": 0.92},
+        )
 
 
 def _build_planner_bev(planner, display_height):
-    """Build the same 2D state map used by TSDFPlanner.agent_step()."""
+    """Build a BEV that distinguishes unknown space from observed map state."""
     obstacle = planner._obstacle_vol_cpu
     if obstacle is None:
         obstacle = np.zeros_like(planner._tsdf_vol_cpu, dtype=bool)
-
     height_index = int(display_height / planner._voxel_size) + planner.min_height_voxel
     height_index = int(np.clip(height_index, 0, planner._tsdf_vol_cpu.shape[2] - 1))
     unoccupied = np.logical_and(
@@ -251,43 +229,87 @@ def _build_planner_bev(planner, display_height):
         planner._tsdf_vol_cpu[:, :, 0] < 0,
     )
     explored = np.any(planner._explore_vol_cpu > 0, axis=2)
+    observed = np.any(planner._weight_vol_cpu > 0, axis=2)
     obstacle_slice = obstacle[:, :, height_index]
-    kernel_size = max(1, int(0.3 / planner._voxel_size))
+    kernel_size = max(1, int(round(0.3 / planner._voxel_size)))
     obstacle_neighborhood = ndimage.convolve(
-        obstacle_slice.astype(float),
-        np.ones((kernel_size, kernel_size)),
-        mode="constant",
-        cval=0.0,
+        obstacle_slice.astype(float), np.ones((kernel_size, kernel_size)),
+        mode="constant", cval=0.0,
     )
 
-    bev = np.full((*unoccupied.shape, 3), 255, dtype=np.uint8)
+    # Pale blue = genuinely unobserved/unknown.  It replaces the old white
+    # canvas whose meaning was absent from both the image and VLM prompt.
+    bev = np.full((*unoccupied.shape, 3), (224, 235, 250), dtype=np.uint8)
+    bev[observed & ~unoccupied] = (230, 230, 230)
     bev[unoccupied] = (200, 200, 200)
     bev[explored & unoccupied] = (194, 246, 198)
-    bev[
-        (obstacle_neighborhood > 0)
-        & (obstacle_neighborhood < kernel_size**2 / 2)
-    ] = (100, 100, 100)
+    bev[(obstacle_neighborhood > 0) & (obstacle_neighborhood < kernel_size**2 / 2)] = (100, 100, 100)
     bev[obstacle_neighborhood >= kernel_size**2 / 2] = (0, 0, 0)
-    return bev, unoccupied
+    support = observed | explored | unoccupied | (obstacle_neighborhood > 0)
+    return bev, unoccupied, support
+
+
+def _compute_crop_bounds(shape, support, planner, trajectory_voxels=None, agent_voxel=None,
+                         candidate_positions=None, padding_m=1.5, min_size_m=6.0):
+    """Crop blank TSDF volume while retaining all decision-relevant positions."""
+    points = [np.argwhere(support)]
+    for item in (trajectory_voxels, [agent_voxel] if agent_voxel is not None else None, candidate_positions):
+        if item is None:
+            continue
+        values = np.asarray(item, dtype=float)
+        if values.size:
+            points.append(values.reshape(-1, values.shape[-1])[:, :2])
+    merged = np.vstack([item for item in points if len(item)])
+    if len(merged) == 0:
+        return 0, shape[0], 0, shape[1]
+    lower = np.floor(np.nanmin(merged, axis=0)).astype(int)
+    upper = np.ceil(np.nanmax(merged, axis=0)).astype(int) + 1
+    pad = max(1, int(round(padding_m / planner._voxel_size)))
+    lower -= pad
+    upper += pad
+    minimum = max(1, int(round(min_size_m / planner._voxel_size)))
+    for axis in range(2):
+        shortfall = minimum - (upper[axis] - lower[axis])
+        if shortfall > 0:
+            lower[axis] -= shortfall // 2
+            upper[axis] += shortfall - shortfall // 2
+    lower = np.maximum(lower, 0)
+    upper = np.minimum(upper, np.asarray(shape[:2]))
+    return int(lower[0]), int(upper[0]), int(lower[1]), int(upper[1])
+
+
+def _crop_bev(bev, traversable, support, planner, trajectory_voxels=None, agent_voxel=None,
+              candidate_positions=None, crop_padding_m=1.5, min_crop_size_m=6.0):
+    x0, x1, y0, y1 = _compute_crop_bounds(
+        bev.shape, support, planner, trajectory_voxels, agent_voxel, candidate_positions,
+        crop_padding_m, min_crop_size_m,
+    )
+    return bev[x0:x1, y0:y1], traversable[x0:x1, y0:y1], np.asarray([x0, y0], dtype=float)
+
+
+def _new_bev_figure(bev):
+    """Create the exact same canvas geometry for semantic and Gaussian BEVs."""
+    height, width = bev.shape[:2]
+    figure_width = 8.0
+    figure_height = min(10.0, max(5.5, figure_width * height / max(width, 1)))
+    fig, ax = plt.subplots(figsize=(figure_width, figure_height), dpi=120)
+    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+    ax.imshow(bev, interpolation="nearest")
+    ax.set_axis_off()
+    return fig, ax
 
 
 def _prediction_weight_and_sigma(scores, min_sigma_m, max_sigma_m):
-    """Map VLM evidence scores to Gaussian strength and uncertainty width."""
-    evidence = np.array(
-        [
-            scores.get("potential_score", 3.0),
-            scores.get("semantic_richness", 3.0),
-            scores.get("explorability", 3.0),
-        ],
-        dtype=float,
-    )
+    """Map direct frontier evidence scores to a visual, heuristic uncertainty."""
+    evidence = np.array([
+        scores.get("potential_score", 3.0),
+        scores.get("semantic_richness", 3.0),
+        scores.get("explorability", 3.0),
+    ], dtype=float)
     evidence = np.clip(evidence, 1.0, 5.0)
     relevance = float(np.clip(scores.get("goal_relevance", 3.0), 1.0, 5.0))
     evidence_strength = np.average(evidence, weights=[0.5, 0.3, 0.2]) / 5.0
     weight = evidence_strength * (relevance / 5.0)
-
-    # The VLM provides categorical evidence rather than calibrated variance.
-    # Treat low evidence and disagreement among diagnostics as higher uncertainty.
     disagreement = np.std(np.append(evidence, relevance)) / 2.0
     uncertainty = np.clip(0.5 * (1.0 - evidence_strength) + 0.5 * disagreement, 0.0, 1.0)
     sigma_m = min_sigma_m + uncertainty * (max_sigma_m - min_sigma_m)
@@ -295,183 +317,101 @@ def _prediction_weight_and_sigma(scores, min_sigma_m, max_sigma_m):
 
 
 def save_frontier_gaussian_bev(
-    planner,
-    output_dir,
-    name,
-    candidates,
-    trajectory_voxels=None,
-    agent_voxel=None,
-    agent_yaw=None,
-    display_height=1.8,
-    min_sigma_m=0.5,
-    max_sigma_m=2.0,
+    planner, output_dir, name, candidates, trajectory_voxels=None, agent_voxel=None,
+    agent_yaw=None, display_height=1.8, min_sigma_m=0.5, max_sigma_m=2.0,
+    trajectory_arrow_stride=4, crop_padding_m=1.5, min_crop_size_m=6.0,
 ):
-    """Save candidate frontier evidence as Gaussians over the planner BEV.
-
-    ``candidates`` contains ``position`` in planner voxel coordinates and
-    direct VLM ``scores``. Gaussian intensity is future-evidence strength
-    multiplied by current-subtask relevance; width is an uncertainty proxy.
-    """
+    """Save a candidate-coloured evidence field on the same cropped BEV frame."""
     if not candidates:
         return None
-
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    bev, traversable = _build_planner_bev(planner, display_height)
-    # Preserve SCOPE's state semantics beneath the score field: unexplored
-    # free space is gray, explored free space is green, and obstacles are
-    # black.  A blank white score canvas hides this navigation context.
-    score_base = bev.copy()
-    x_grid, y_grid = np.ogrid[: bev.shape[0], : bev.shape[1]]
-    field = np.zeros(bev.shape[:2], dtype=np.float32)
+    bev, traversable, support = _build_planner_bev(planner, display_height)
+    positions = [np.asarray(candidate["position"], dtype=float)[:2] for candidate in candidates]
+    bev, traversable, crop_origin = _crop_bev(
+        bev, traversable, support, planner, trajectory_voxels, agent_voxel, positions,
+        crop_padding_m, min_crop_size_m,
+    )
+    x_grid, y_grid = np.ogrid[:bev.shape[0], :bev.shape[1]]
     candidate_info = []
-
-    for index, candidate in enumerate(candidates):
-        position = np.asarray(candidate["position"], dtype=float)
-        scores = candidate["scores"]
-        weight, sigma_m = _prediction_weight_and_sigma(
-            scores, min_sigma_m, max_sigma_m
-        )
+    for index, candidate in enumerate(candidates, start=1):
+        position = _shift_voxels(candidate["position"], crop_origin)[:2]
+        weight, sigma_m = _prediction_weight_and_sigma(candidate["scores"], min_sigma_m, max_sigma_m)
         sigma_vox = max(sigma_m / planner._voxel_size, 1e-6)
-        squared_distance = (x_grid - position[0]) ** 2 + (y_grid - position[1]) ** 2
-        field += weight * np.exp(-squared_distance / (2.0 * sigma_vox**2))
-        candidate_info.append((position, weight, sigma_m, index + 1))
+        field = np.exp(-((x_grid - position[0]) ** 2 + (y_grid - position[1]) ** 2) / (2.0 * sigma_vox**2))
+        candidate_info.append((position, weight, sigma_m, field, index))
 
-    # A constant alpha would tint the entire explored region dark: even the
-    # very small tails of a 0.5--2 m Gaussian receive the darkest magma
-    # colour.  Reveal the neutral map below weak evidence and make opacity
-    # increase with the normalized evidence instead.
-    peak_field = float(field.max())
-    normalized_field = field / peak_field if peak_field > 0 else field
-    evidence_cutoff = 0.08
-    visible_field = np.ma.masked_where(
-        (normalized_field < evidence_cutoff) | ~traversable, field
-    )
-    heat_alpha = 0.82 * np.clip(
-        (normalized_field - evidence_cutoff) / (1.0 - evidence_cutoff), 0.0, 1.0
-    ) ** 0.65
-    heat_alpha[~traversable] = 0.0
-    fig, ax = plt.subplots(
-        figsize=(max(8, bev.shape[1] / 120), max(8, bev.shape[0] / 120)),
-        dpi=120,
-    )
-    ax.imshow(score_base, interpolation="nearest")
-    # Darker red means stronger evidence. The gray/green base map remains the
-    # sole encoding of exploration state, while weak evidence is transparent.
-    reds = plt.colormaps.get_cmap("Reds")
-    evidence_cmap = LinearSegmentedColormap.from_list(
-        "evidence_reds", reds(np.linspace(0.35, 1.0, 256))
-    )
-    heat = ax.imshow(
-        visible_field,
-        cmap=evidence_cmap,
-        alpha=heat_alpha,
-        interpolation="bilinear",
-        zorder=4,
-    )
-    _draw_trajectory(ax, trajectory_voxels, 1, 1)
-
-    if agent_yaw is not None:
-        _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, 1)
-
-    for position, weight, sigma_m, index in candidate_info:
-        ax.scatter(
-            position[1], position[0], s=64, c="white", edgecolors="black", linewidths=1.2, zorder=8
+    fig, ax = _new_bev_figure(bev)
+    peak_weight = max((info[1] for info in candidate_info), default=1.0)
+    for position, weight, sigma_m, field, index in candidate_info:
+        visible = np.ma.masked_where((field < 0.08) | ~traversable, field)
+        relative_weight = weight / max(peak_weight, 1e-6)
+        alpha = 0.18 + 0.50 * relative_weight
+        color = _candidate_color(index)
+        cmap = LinearSegmentedColormap.from_list(
+            f"candidate_{index}", [(1, 1, 1, 0), (*to_rgba(color)[:3], 1)]
         )
+        ax.imshow(visible, cmap=cmap, alpha=alpha, interpolation="bilinear", zorder=4)
+        ax.scatter(position[1], position[0], s=44, c="white", edgecolors=color, linewidths=1.5, zorder=10)
         ax.text(
-            position[1] + 2,
-            position[0] - 2,
-            f"F{index}: w={weight:.2f}, σ={sigma_m:.1f}m",
-            fontsize=7,
-            color="black",
-            bbox={"boxstyle": "round,pad=0.15", "fc": "white", "ec": "none", "alpha": 0.85},
-            zorder=9,
+            position[1] + 1.5, position[0] - 1.5, f"F{index}  {weight:.2f}, {sigma_m:.1f}m",
+            fontsize=6.2, color="black", zorder=11, clip_on=True,
+            bbox={"boxstyle": "round,pad=0.10", "fc": "white", "ec": color, "alpha": 0.88},
         )
-
-    ax.set_title("Frontier future-evidence field", fontsize=10)
-    ax.set_axis_off()
-    colorbar = fig.colorbar(heat, ax=ax, fraction=0.046, pad=0.02)
-    colorbar.set_label("weighted future evidence (<8% peak: transparent)", fontsize=8)
+    _draw_trajectory(ax, trajectory_voxels, 1, trajectory_arrow_stride, crop_origin)
+    _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, 1, crop_origin)
+    ax.text(
+        0.012, 0.012,
+        "candidate color: F1/F2/F3 | radius: heuristic uncertainty | opacity: evidence × relevance",
+        transform=ax.transAxes, fontsize=5.8, color="black",
+        bbox={"boxstyle": "round,pad=0.16", "fc": "white", "ec": "none", "alpha": 0.80}, zorder=20,
+    )
     output_path = output_dir / f"{name}_gaussian_bev.png"
-    fig.savefig(output_path, dpi=120, bbox_inches="tight", pad_inches=0)
+    fig.savefig(output_path, dpi=120, pad_inches=0)
     plt.close(fig)
     return output_path
 
 
 def save_bev_visualization(
-    planner,
-    output_dir,
-    name,
-    trajectory_voxels=None,
-    objects=None,
-    render_resolution=0.025,
-    min_object_detections=2,
-    trajectory_arrow_stride=1,
-    relevant_classes=None,
-    max_labeled_instances=10,
-    fill_irrelevant_instances=False,
-    show_irrelevant_outlines=False,
-    display_height=1.8,
-    frontier_candidates=None,
-    agent_voxel=None,
-    agent_yaw=None,
+    planner, output_dir, name, trajectory_voxels=None, objects=None, render_resolution=0.025,
+    min_object_detections=2, trajectory_arrow_stride=4, relevant_classes=None,
+    max_labeled_instances=10, fill_irrelevant_instances=False,
+    show_irrelevant_outlines=False, display_height=1.8, frontier_candidates=None,
+    agent_voxel=None, agent_yaw=None, crop_padding_m=1.5, min_crop_size_m=6.0,
 ):
-    """Save a semantic, high-resolution BEV image.
+    """Save a compact semantic BEV for VLM input.
 
-    ``render_resolution`` only controls output pixels and overlays; it does not
-    change the planner's TSDF voxel size or invent additional geometry detail.
+    ``render_resolution`` remains accepted for config compatibility.  The
+    output is rasterized at a fixed image resolution after crop, so it never
+    upsamples or invents TSDF detail.
     """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    bev, _ = _build_planner_bev(planner, display_height)
-
     if render_resolution <= 0:
         raise ValueError("render_resolution must be positive")
-    scale = planner._voxel_size / float(render_resolution)
-    if scale < 1:
-        raise ValueError("render_resolution must not be coarser than the TSDF voxel size")
-    upsample = max(1, int(round(scale)))
-    if not np.isclose(scale, upsample):
-        raise ValueError("render_resolution must divide the TSDF voxel size")
-    # Keep the native [voxel-x, voxel-y] orientation. Matplotlib then uses
-    # x=voxel-y and y=voxel-x, identical to TSDFPlanner.agent_step().
-    rendered_bev = np.repeat(np.repeat(bev, upsample, axis=0), upsample, axis=1)
-
-    height, width = rendered_bev.shape[:2]
-    fig, ax = plt.subplots(
-        figsize=(max(8, width / 120), max(8, height / 120)),
-        dpi=120,
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    bev, traversable, support = _build_planner_bev(planner, display_height)
+    positions = [np.asarray(frontier.position, dtype=float)[:2] for frontier in (frontier_candidates or [])]
+    bev, _, crop_origin = _crop_bev(
+        bev, traversable, support, planner, trajectory_voxels, agent_voxel, positions,
+        crop_padding_m, min_crop_size_m,
     )
-    ax.imshow(rendered_bev, interpolation="nearest")
-    ax.set_axis_off()
-    _draw_trajectory(ax, trajectory_voxels, upsample, trajectory_arrow_stride)
+    fig, ax = _new_bev_figure(bev)
+    _draw_trajectory(ax, trajectory_voxels, 1, trajectory_arrow_stride, crop_origin)
     _draw_object_instances(
-        ax,
-        planner,
-        objects,
-        upsample,
-        int(min_object_detections),
-        relevant_classes=relevant_classes,
-        max_labeled_instances=max_labeled_instances,
+        ax, planner, objects, 1, int(min_object_detections), crop_origin,
+        relevant_classes=relevant_classes, max_labeled_instances=max_labeled_instances,
         fill_irrelevant_instances=fill_irrelevant_instances,
         show_irrelevant_outlines=show_irrelevant_outlines,
     )
-    _draw_frontier_candidates(ax, frontier_candidates, upsample)
-    if agent_yaw is not None:
-        _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, upsample)
+    _draw_frontier_candidates(ax, frontier_candidates, 1, crop_origin)
+    _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, 1, crop_origin)
     ax.text(
-        0.01,
-        0.01,
-        "gray: observed free | green: explored free | black: obstacle | colored: observed semantic instance",
-        transform=ax.transAxes,
-        fontsize=7,
-        color="black",
-        bbox={"boxstyle": "round,pad=0.25", "fc": "white", "ec": "none", "alpha": 0.82},
-        zorder=20,
+        0.012, 0.012,
+        "blue: unknown | gray: observed free | green: explored free | black: obstacle | colored: semantic context",
+        transform=ax.transAxes, fontsize=5.8, color="black",
+        bbox={"boxstyle": "round,pad=0.16", "fc": "white", "ec": "none", "alpha": 0.80}, zorder=20,
     )
     bev_path = output_dir / f"{name}_bev.png"
-    fig.savefig(bev_path, dpi=120, bbox_inches="tight", pad_inches=0)
+    fig.savefig(bev_path, dpi=120, pad_inches=0)
     plt.close(fig)
-
     return bev_path

@@ -552,6 +552,8 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                     frontier_candidates=candidate_frontiers,
                                     agent_voxel=agent_voxel,
                                     agent_yaw=angle,
+                                    crop_padding_m=float(getattr(cfg, "tsdf_bev_crop_padding_m", 1.5)),
+                                    min_crop_size_m=float(getattr(cfg, "tsdf_bev_min_crop_size_m", 6.0)),
                                 )
                                 gaussian_candidates = [
                                     {"position": frontier.position, "scores": scores}
@@ -566,6 +568,9 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                         trajectory_voxels=logger.pts_voxels,
                                         agent_voxel=agent_voxel,
                                         agent_yaw=angle,
+                                        trajectory_arrow_stride=int(getattr(cfg, "tsdf_bev_trajectory_arrow_stride", 4)),
+                                        crop_padding_m=float(getattr(cfg, "tsdf_bev_crop_padding_m", 1.5)),
+                                        min_crop_size_m=float(getattr(cfg, "tsdf_bev_min_crop_size_m", 6.0)),
                                     )
                             except Exception as exc:
                                 logging.warning("Failed to generate structured BEV VLM inputs: %s", exc)

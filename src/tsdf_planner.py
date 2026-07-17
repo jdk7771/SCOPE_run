@@ -148,10 +148,45 @@ class TSDFPlanner(TSDFPlannerBase):
         unexplored = (np.sum(self._explore_vol_cpu, axis=-1) == 0).astype(int)
         for point in self.init_points:
             unexplored[point[0], point[1]] = 0
-        kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
-        unexplored_neighbors = ndimage.convolve(
-            unexplored, kernel, mode="constant", cval=0.0
-        )
+        # At 5 cm, a fixed 3x3 / one-voxel neighbourhood no longer describes
+        # the same physical frontier as it did at 10 cm.  Prefer metric fields
+        # when available while retaining the legacy configuration as a fallback.
+        neighbor_radius_m = getattr(cfg, "frontier_neighbor_radius_m", None)
+        if neighbor_radius_m is not None:
+            neighbor_radius_vox = max(
+                1, int(np.ceil(float(neighbor_radius_m) / self._voxel_size))
+            )
+            kernel = np.ones(
+                (2 * neighbor_radius_vox + 1, 2 * neighbor_radius_vox + 1),
+                dtype=np.float32,
+            )
+            kernel[neighbor_radius_vox, neighbor_radius_vox] = 0.0
+            unexplored_neighbors = ndimage.convolve(
+                unexplored, kernel, mode="constant", cval=0.0
+            )
+            neighbor_count = float(kernel.sum())
+            unexplored_ratio = unexplored_neighbors / max(neighbor_count, 1.0)
+            frontier_area_mask = (
+                (unexplored_ratio >= float(cfg.frontier_area_unknown_fraction_min))
+                & (unexplored_ratio <= float(cfg.frontier_area_unknown_fraction_max))
+            )
+            frontier_edge_mask = (
+                (unexplored_ratio >= float(cfg.frontier_edge_unknown_fraction_min))
+                & (unexplored_ratio <= float(cfg.frontier_edge_unknown_fraction_max))
+            )
+        else:
+            kernel = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]])
+            unexplored_neighbors = ndimage.convolve(
+                unexplored, kernel, mode="constant", cval=0.0
+            )
+            frontier_area_mask = (
+                (unexplored_neighbors >= cfg.frontier_area_min)
+                & (unexplored_neighbors <= cfg.frontier_area_max)
+            )
+            frontier_edge_mask = (
+                (unexplored_neighbors >= cfg.frontier_edge_area_min)
+                & (unexplored_neighbors <= cfg.frontier_edge_area_max)
+            )
         occupied_map_camera = np.logical_not(
             self.get_island_around_pts(pts, height=self.vision_height)[0]
         )
@@ -165,13 +200,11 @@ class TSDFPlanner(TSDFPlannerBase):
         # detect and update frontiers
         frontier_areas = np.argwhere(
             island
-            & (unexplored_neighbors >= cfg.frontier_area_min)
-            & (unexplored_neighbors <= cfg.frontier_area_max)
+            & frontier_area_mask
         )
         frontier_edge_areas = np.argwhere(
             island
-            & (unexplored_neighbors >= cfg.frontier_edge_area_min)
-            & (unexplored_neighbors <= cfg.frontier_edge_area_max)
+            & frontier_edge_mask
         )
 
         if len(frontier_areas) == 0:
@@ -187,7 +220,13 @@ class TSDFPlanner(TSDFPlannerBase):
             return False
 
         # cluster frontier regions
-        db = DBSCAN(eps=cfg.eps, min_samples=2).fit(frontier_areas)
+        cluster_eps_m = getattr(cfg, "frontier_cluster_eps_m", None)
+        cluster_eps_vox = (
+            max(1.0, float(cluster_eps_m) / self._voxel_size)
+            if cluster_eps_m is not None
+            else cfg.eps
+        )
+        db = DBSCAN(eps=cluster_eps_vox, min_samples=2).fit(frontier_areas)
         labels = db.labels_
         # get one point from each cluster
         valid_ft_angles = []
@@ -198,7 +237,13 @@ class TSDFPlanner(TSDFPlannerBase):
 
             # filter out small frontiers
             area = len(cluster)
-            if area < cfg.min_frontier_area:
+            min_frontier_area_m2 = getattr(cfg, "min_frontier_area_m2", None)
+            min_frontier_area_vox = (
+                int(np.ceil(float(min_frontier_area_m2) / (self._voxel_size ** 2)))
+                if min_frontier_area_m2 is not None
+                else cfg.min_frontier_area
+            )
+            if area < min_frontier_area_vox:
                 continue
 
             # convert the cluster from voxel coordinates to polar angle coordinates

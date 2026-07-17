@@ -290,26 +290,41 @@ def format_explore_prompt(
 
     if semantic_bev is not None:
         text = (
-            "Input A — Structured semantic BEV (HSGM-style): gray is observed traversable space, "
-            "green is explored traversable space, black is obstacle, colored footprints are "
-            "observed semantic instances whose labels are object names, orange is trajectory, red triangle is the current agent pose, "
-            "and F1/F2/F3 are the SCOPE frontier candidates. Use this global map to relate named context objects, avoid already explored space, "
-            "and verify which candidate can reveal the missing evidence."
+            "Input A — Structured semantic BEV: blue is unknown or unobserved space, gray is observed traversable space, "
+            "green is explored traversable space, and black is obstacle. Colored transparent footprints are observed semantic context; "
+            "their labels are object class names only. Orange is trajectory, the compact red triangle is the current agent and heading, "
+            "and colored F1/F2/F3 markers are the SCOPE frontier candidates. Use the map to relate named context, avoid already explored space, "
+            "and identify which candidate can reveal missing evidence."
         )
         content.append((text, semantic_bev))
         content.append(("\n",))
 
     if gaussian_bev is not None:
         text = (
-            "Input B — Frontier future-evidence BEV: each Gaussian center is a candidate frontier endpoint. "
-            "Its weight combines predicted future evidence with current-subtask relevance; its width "
-            "is prediction uncertainty. Cross-reference its F label with Input A and the frontier thumbnail below. "
+            "Input B — Frontier future-evidence BEV uses exactly the same cropped coordinate frame as Input A. "
+            "Each candidate keeps its F1/F2/F3 color; its center is the frontier endpoint, opacity combines future-evidence and current-subtask relevance, "
+            "and radius is a heuristic uncertainty estimate rather than a calibrated probability. Cross-reference the same F label with the frontier thumbnail immediately below. "
             "Treat the SCOPE score as evidence, not a command: prefer the candidate whose map context and predicted evidence jointly support the current subtask."
         )
         content.append((text, gaussian_bev))
         content.append(("\n",))
 
-    # 4 here is the snapshot images
+    # 4 Put frontier thumbnails immediately after both maps.  In the previous
+    # order, many snapshot crops separated F labels from the map evidence.
+    text = "The following are the frontier candidates shown as F1/F2/F3 in both BEV inputs: \n"
+    content.append((text,))
+    if len(frontier_imgs) == 0:
+        content.append(("No Frontier is available\n",))
+    else:
+        for i in range(len(frontier_imgs)):
+            if frontier_potential_scores and i < len(frontier_potential_scores):
+                potential_score = frontier_potential_scores[i]
+                content.append((f"Frontier F{i + 1} (SCOPE potential score: {potential_score:.2f}) ", frontier_imgs[i]))
+            else:
+                content.append((f"Frontier F{i + 1} ", frontier_imgs[i]))
+            content.append(("\n",))
+
+    # 5 here are the snapshot images
     text = "The followings are all the snapshots that you can choose. Following each snapshot image are the class name and image crop of each object contained in the snapshot.\n"
     text += "Please note that the class name may not be accurate due to the limitation of the object detection model. "
     text += "So you still need to utilize the images to make the decision.\n"
@@ -326,20 +341,6 @@ def format_explore_prompt(
                         snapshot_crops[rgb_id][j],
                     )
                 )
-            content.append(("\n",))
-
-    # 5 here is the frontier images
-    text = "The followings are all the Frontiers that you can explore: \n"
-    content.append((text,))
-    if len(frontier_imgs) == 0:
-        content.append(("No Frontier is available\n",))
-    else:
-        for i in range(len(frontier_imgs)):
-            if frontier_potential_scores and i < len(frontier_potential_scores):
-                potential_score = frontier_potential_scores[i]
-                content.append((f"Frontier F{i + 1} (SCOPE potential score: {potential_score:.2f}) ", frontier_imgs[i]))
-            else:
-                content.append((f"Frontier F{i + 1} ", frontier_imgs[i]))
             content.append(("\n",))
 
     # 6 here is the format of the answer

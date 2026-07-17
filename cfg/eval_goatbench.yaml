@@ -54,14 +54,16 @@ extra_view_angle_deg_phase_2: 40
 # about tsdf, depth map, and frontier updates
 explored_depth: 1.7
 tsdf_grid_size: 0.05
-# Render at the native 5 cm TSDF resolution. Keeping these equal avoids
-# upsampling a coarser grid and preserves genuine voxel-map detail.
+# Planning remains at 5 cm.  The VLM BEV is cropped and rasterized separately;
+# it must not inherit the whole TSDF volume's blank margin.
 tsdf_bev_render_resolution: 0.05
 tsdf_bev_min_object_detections: 2
-tsdf_bev_trajectory_arrow_stride: 1
+tsdf_bev_trajectory_arrow_stride: 4
 tsdf_bev_max_labeled_instances: 5  # only the first N VLM-relevant instances receive labels
 tsdf_bev_fill_irrelevant_instances: false  # true: use stable non-relevant instances to fill unused label slots
 tsdf_bev_show_irrelevant_object_outlines: false  # optionally retain unlabeled gray outlines for non-selected instances
+tsdf_bev_crop_padding_m: 1.5
+tsdf_bev_min_crop_size_m: 6.0
 # Generate the two structured BEVs before every high-level decision and attach
 # them to the VLM prompt.  F1..Fn are sorted by the existing SCOPE potential score.
 structured_bev_for_vlm: true
@@ -70,6 +72,15 @@ structured_bev_fill_context_instances: true  # label stable context objects when
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6
 planner:
+  # All frontier thresholds below are physical quantities.  The legacy pixel
+  # fields remain as a fallback for old configs, but are not used here.
+  frontier_neighbor_radius_m: 0.10
+  frontier_area_unknown_fraction_min: 1.00
+  frontier_area_unknown_fraction_max: 1.00
+  frontier_edge_unknown_fraction_min: 0.50
+  frontier_edge_unknown_fraction_max: 0.75
+  frontier_cluster_eps_m: 0.10
+  min_frontier_area_m2: 0.20
   eps: 1
   max_dist_from_cur_phase_1: 1  # when the target object is not found, explore the frontiers with this step length
   max_dist_from_cur_phase_2: 1  # when the target object is found, go to the target object with this step length
