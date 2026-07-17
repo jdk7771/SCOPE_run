@@ -38,7 +38,7 @@ min_frontier_area_m2: 0.20
 - agent 使用小蓝点标位置、细红箭头标朝向，不再用大面积三角形遮挡地图。
 - 删除不直接服务决策的 `R#`、`C`、object tracker ID；标签仅显示类别名。
 - 标签使用短引线；语义位置在 2026-07-17 的几何一致性修复后不再直接绘制原始 3D bbox 面积。
-- F1/F2/F3 在两张图中保持相同且不同的候选颜色。
+- F1..Fn 在两张图中保持相同且不同的候选颜色（前 20 个使用固定不同颜色）。
 - trajectory 方向箭头默认每 4 个记录点绘制一次，减少长轨迹遮挡。
 
 ## 3. Gaussian BEV
@@ -49,7 +49,7 @@ min_frontier_area_m2: 0.20
 
 ## 4. VLM 输入与兼容性
 
-- VLM 内容顺序调整为：semantic BEV → Gaussian BEV → F1/F2/F3 frontier thumbnail → snapshots / crops。
+- VLM 内容顺序调整为：semantic BEV → Gaussian BEV → F1..Fn frontier thumbnail → snapshots / crops。
 - 更新 Prompt，显式说明浅蓝 unknown、简化对象标签、两图同坐标及 Gaussian 不确定性的启发式性质。
 - 下层导航、SCOPE frontier 排分、structured JSON 输出协议与 `subtask_status` 解析均保持兼容。
 - 所有实际 VLM 输入仍保存至既有 `vlm_full_inputs` 机制，可追溯源 BEV 路径。
@@ -95,3 +95,11 @@ python -m py_compile src/tsdf_planner.py src/tsdf_export.py \
 - Prompt 同步修改，明确彩色区域由 TSDF 支撑、边界是近似语义 footprint，不是原始 OBB 或精确实例分割；Gaussian BEV、frontier 排分、JSON 决策协议和下层执行逻辑均未改变。
 
 已用最小合成测试验证：带物理支撑的紧凑 `chair` 会保留；面积异常、且包含执行轨迹的 `bathtub` 会被过滤。旧结果图片不会被回写；需重新运行 episode 后生成新的 VLM 输入和 inspection 图。
+
+## 2026-07-17：高层 VLM 使用全部 frontier
+
+此前 `structured_bev_max_frontiers: 3` 会先按 SCOPE PotentialGraph 分数排序，再只把 top-3 作为 F1/F2/F3 提供给高层 VLM。这会改变高层的候选空间，并可能排除排在第四名之后但实际正确的 frontier。
+
+现在默认配置为 `structured_bev_max_frontiers: 0`：0 表示**不截断**。当前所有有效 frontier 都输入高层 VLM，并在 semantic BEV、Gaussian BEV、frontier thumbnail、VLM 返回索引中使用完全一致的 `F1..Fn` 顺序。SCOPE PotentialGraph 仍负责排序和提供 Gaussian evidence 分数，但不再负责剔除候选；低层仍用原 SCOPE planner 执行 VLM 选中的 frontier。
+
+这会增加 frontier 缩略图及 BEV 标签数量、因而增加 VLM token/响应时间；这是保留完整候选空间的直接代价，应在 timing 对比中单独记录。

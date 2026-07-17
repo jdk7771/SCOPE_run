@@ -295,7 +295,7 @@ def format_explore_prompt(
             "their labels are object class names only. Their boundaries follow locally observed obstacle support and are approximate, "
             "not raw 3D tracker boxes or precise instance masks. "
             "Orange is trajectory, the blue dot and compact red arrow are the current agent and heading, "
-            "and colored F1/F2/F3 markers are the SCOPE frontier candidates. Use the map to relate named context, avoid already explored space, "
+            "and colored F1..Fn markers are all currently valid SCOPE frontier candidates, ordered by SCOPE score. Use the map to relate named context, avoid already explored space, "
             "and identify which candidate can reveal missing evidence."
         )
         content.append((text, semantic_bev))
@@ -304,7 +304,7 @@ def format_explore_prompt(
     if gaussian_bev is not None:
         text = (
             "Input B — Frontier future-evidence BEV uses exactly the same cropped coordinate frame as Input A. "
-            "Each candidate keeps its F1/F2/F3 color; its center is the frontier endpoint, opacity combines future-evidence and current-subtask relevance, "
+            "Each candidate keeps its F1..Fn color; its center is the frontier endpoint, opacity combines future-evidence and current-subtask relevance, "
             "and radius is a heuristic uncertainty estimate rather than a calibrated probability. Cross-reference the same F label with the frontier thumbnail immediately below. "
             "Treat the SCOPE score as evidence, not a command: prefer the candidate whose map context and predicted evidence jointly support the current subtask."
         )
@@ -313,7 +313,7 @@ def format_explore_prompt(
 
     # 4 Put frontier thumbnails immediately after both maps.  In the previous
     # order, many snapshot crops separated F labels from the map evidence.
-    text = "The following are the frontier candidates shown as F1/F2/F3 in both BEV inputs: \n"
+    text = "The following are all active frontier candidates, shown as F1..Fn in both BEV inputs and ordered by SCOPE score: \n"
     content.append((text,))
     if len(frontier_imgs) == 0:
         content.append(("No Frontier is available\n",))

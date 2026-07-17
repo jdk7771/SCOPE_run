@@ -71,9 +71,10 @@ tsdf_bev_semantic_max_extent_m: 4.0
 tsdf_bev_semantic_support_radius_m: 0.40
 tsdf_bev_semantic_shape_dilation_m: 0.10
 # Generate the two structured BEVs before every high-level decision and attach
-# them to the VLM prompt.  F1..Fn are sorted by the existing SCOPE potential score.
+# them to the VLM prompt.  F1..Fn are SCOPE-score ranked but all valid
+# frontiers are presented when this value is 0 (the intended experiment).
 structured_bev_for_vlm: true
-structured_bev_max_frontiers: 3
+structured_bev_max_frontiers: 0  # 0: all active frontiers; positive: legacy compatibility cap
 structured_bev_fill_context_instances: true  # label stable context objects when target class is not yet observed
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6

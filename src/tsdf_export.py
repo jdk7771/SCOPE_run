@@ -10,11 +10,9 @@ from scipy import ndimage
 import numpy as np
 
 
-_CANDIDATE_COLORS = ("#9c27b0", "#0072b2", "#d55e00")
-
-
 def _candidate_color(index):
-    return _CANDIDATE_COLORS[(index - 1) % len(_CANDIDATE_COLORS)]
+    """Use distinct stable colours for the first 20 VLM frontier labels."""
+    return plt.colormaps.get_cmap("tab20")((index - 1) % 20)
 
 
 def _object_footprint_voxels(planner, obj):
@@ -510,7 +508,7 @@ def save_frontier_gaussian_bev(
     _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, 1, crop_origin)
     ax.text(
         0.012, 0.012,
-        "candidate color: F1/F2/F3 | radius: heuristic uncertainty | opacity: evidence × relevance",
+        "candidate color: F1..Fn | radius: heuristic uncertainty | opacity: evidence × relevance",
         transform=ax.transAxes, fontsize=5.8, color="black",
         bbox={"boxstyle": "round,pad=0.16", "fc": "white", "ec": "none", "alpha": 0.80}, zorder=20,
     )

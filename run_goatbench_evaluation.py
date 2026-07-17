@@ -35,8 +35,8 @@ from src.tsdf_export import save_bev_visualization, save_frontier_gaussian_bev
 from src.vlm_timing import configure_vlm_timing, log_vlm_timing_summary
 
 
-def select_scope_frontier_candidates(tsdf_planner, potential_graph, max_candidates=3):
-    """Keep the highest SCOPE-scored frontiers and preserve that F1..Fn order."""
+def select_scope_frontier_candidates(tsdf_planner, potential_graph, max_candidates=None):
+    """Rank all SCOPE frontiers; an optional positive limit is compatibility-only."""
     ranked = []
     for frontier in tsdf_planner.frontiers:
         prediction = potential_graph.get_frontier_prediction(frontier.position)
@@ -53,7 +53,9 @@ def select_scope_frontier_candidates(tsdf_planner, potential_graph, max_candidat
                 score = 0.0
         ranked.append((score, int(frontier.frontier_id), frontier, scores))
     ranked.sort(key=lambda item: (-item[0], item[1]))
-    return ranked[:max(1, int(max_candidates))]
+    if max_candidates is None or int(max_candidates) <= 0:
+        return ranked
+    return ranked[:int(max_candidates)]
 
 
 def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
@@ -520,7 +522,10 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                         candidate_ranked = select_scope_frontier_candidates(
                             tsdf_planner,
                             potential_graph,
-                            max_candidates=getattr(cfg, "structured_bev_max_frontiers", 3),
+                            # A non-positive value means all active frontiers.
+                            # PotentialGraph determines their F1..Fn order but
+                            # must not prune the VLM decision space.
+                            max_candidates=getattr(cfg, "structured_bev_max_frontiers", 0),
                         )
                         candidate_frontiers = [item[2] for item in candidate_ranked]
                         semantic_bev_path = None
@@ -598,7 +603,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                 logging.warning("Failed to generate structured BEV VLM inputs: %s", exc)
 
                         logging.info(
-                            "Querying VLM with %d snapshots and %d SCOPE-scored frontier candidates",
+                            "Querying VLM with %d snapshots and %d SCOPE-ranked frontier candidates",
                             len(scene.snapshots), len(candidate_frontiers),
                         )
                         
