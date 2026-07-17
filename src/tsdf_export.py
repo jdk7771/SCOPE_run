@@ -4,7 +4,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, to_rgba
-from matplotlib.patches import FancyArrowPatch, Polygon
+from matplotlib.patches import Circle, FancyArrowPatch
+from matplotlib.path import Path as MplPath
 import numpy as np
 
 
@@ -33,6 +34,147 @@ def _object_footprint_voxels(planner, obj):
     return points[np.argsort(angles)]
 
 
+def _object_anchor_voxel(planner, obj):
+    """Return the object's tracked centre in planner XY voxel coordinates."""
+    try:
+        center = np.asarray(obj["bbox"].center, dtype=float)
+        if center.shape != (3,) or not np.all(np.isfinite(center)):
+            return None
+        return np.asarray(planner.habitat2voxel(center)[:2], dtype=float)
+    except Exception:
+        return None
+
+
+def _polygon_area_m2(footprint, voxel_size):
+    """Area of a projected XY footprint in square metres."""
+    footprint = np.asarray(footprint, dtype=float)
+    if footprint.ndim != 2 or footprint.shape[0] < 3:
+        return 0.0
+    x, y = footprint[:, 0], footprint[:, 1]
+    area_voxels = 0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+    return float(area_voxels * voxel_size * voxel_size)
+
+
+def _point_has_support(mask, point, radius_voxels):
+    """Whether a planner XY point has observed support in a local metric radius."""
+    if mask is None or mask.size == 0:
+        return False
+    point = np.rint(np.asarray(point, dtype=float)[:2]).astype(int)
+    radius = max(0, int(np.ceil(radius_voxels)))
+    x0, x1 = max(0, point[0] - radius), min(mask.shape[0], point[0] + radius + 1)
+    y0, y1 = max(0, point[1] - radius), min(mask.shape[1], point[1] + radius + 1)
+    return bool(x0 < x1 and y0 < y1 and np.any(mask[x0:x1, y0:y1]))
+
+
+def _prepare_semantic_instances(
+    planner,
+    objects,
+    min_detections,
+    relevant_classes=None,
+    max_labeled_instances=10,
+    fill_irrelevant_instances=False,
+    trajectory_voxels=None,
+    max_footprint_area_m2=6.0,
+    max_extent_m=4.0,
+    support_radius_m=0.4,
+):
+    """Select only TSDF-consistent object anchors for a decision BEV.
+
+    ConceptGraph boxes are useful as semantic *hypotheses*, but their raw OBB
+    geometry is not a collision map.  In particular, a merged outlier box can
+    span free TSDF cells and a previously executed path.  Such a box must not
+    be presented to the VLM as a real semantic region.
+    """
+    if not objects:
+        return []
+
+    observed = np.any(planner._weight_vol_cpu > 0, axis=2)
+    obstacle = planner._obstacle_vol_cpu
+    if obstacle is not None:
+        physical_support = np.any(obstacle, axis=2)
+    else:
+        # Keep visualisation usable when obstacle saving is disabled, while
+        # retaining the stronger physical check during normal evaluation.
+        physical_support = observed
+
+    trajectory = None
+    if trajectory_voxels is not None:
+        trajectory = np.asarray(trajectory_voxels, dtype=float)
+        if trajectory.ndim != 2 or trajectory.shape[1] < 2:
+            trajectory = None
+        elif len(trajectory):
+            trajectory = trajectory[:, :2]
+
+    ranked_classes = list(dict.fromkeys(relevant_classes or []))
+    relevant_class_rank = (
+        None
+        if relevant_classes is None
+        else {class_name: rank for rank, class_name in enumerate(ranked_classes)}
+    )
+    support_radius_voxels = float(support_radius_m) / planner._voxel_size
+    candidates = []
+    for obj_id, obj in objects.items():
+        if int(obj.get("num_detections", 0)) < min_detections:
+            continue
+        anchor = _object_anchor_voxel(planner, obj)
+        footprint = _object_footprint_voxels(planner, obj)
+        if anchor is None or footprint is None:
+            continue
+        if not (0 <= anchor[0] < observed.shape[0] and 0 <= anchor[1] < observed.shape[1]):
+            continue
+
+        area_m2 = _polygon_area_m2(footprint, planner._voxel_size)
+        extent_m = float(np.max(np.ptp(footprint, axis=0)) * planner._voxel_size)
+        if not np.isfinite(area_m2) or not np.isfinite(extent_m):
+            continue
+        if area_m2 > max_footprint_area_m2 or extent_m > max_extent_m:
+            continue
+
+        # A displayed semantic anchor must be near an observed physical
+        # surface.  This prevents a stale tracker box from labelling empty
+        # navigable TSDF space as an object.
+        if not _point_has_support(observed, anchor, support_radius_voxels):
+            continue
+        if not _point_has_support(physical_support, anchor, support_radius_voxels):
+            continue
+
+        # A valid static object's footprint cannot contain the executed path.
+        # This catches the large, tilted bathtub-like outliers in the reported
+        # episode without treating a normal nearby object as invalid.
+        if trajectory is not None and len(trajectory) and MplPath(footprint).contains_points(trajectory).any():
+            continue
+
+        class_name = str(obj.get("class_name", "object"))
+        class_rank = None if relevant_class_rank is None else relevant_class_rank.get(class_name)
+        candidates.append(
+            {
+                "obj_id": obj_id,
+                "class_name": class_name,
+                "class_rank": class_rank,
+                "num_detections": int(obj.get("num_detections", 0)),
+                "anchor": anchor,
+            }
+        )
+
+    if relevant_class_rank is not None:
+        candidates.sort(
+            key=lambda item: (
+                item["class_rank"] is None,
+                item["class_rank"] if item["class_rank"] is not None else float("inf"),
+                -item["num_detections"],
+                int(item["obj_id"]),
+            )
+        )
+    else:
+        candidates.sort(key=lambda item: (-item["num_detections"], int(item["obj_id"])))
+
+    label_pool = candidates if (relevant_class_rank is None or fill_irrelevant_instances) else [
+        candidate for candidate in candidates if candidate["class_rank"] is not None
+    ]
+    limit = max(0, int(max_labeled_instances))
+    return label_pool if limit == 0 else label_pool[:limit]
+
+
 def _shift_voxels(points, crop_origin):
     """Shift planner [voxel-x, voxel-y] coordinates into a cropped BEV."""
     array = np.asarray(points, dtype=float).copy()
@@ -43,101 +185,36 @@ def _shift_voxels(points, crop_origin):
     return array
 
 
-def _draw_object_instances(
-    ax,
-    planner,
-    objects,
-    scale,
-    min_detections,
-    crop_origin,
-    relevant_classes=None,
-    max_labeled_instances=10,
-    fill_irrelevant_instances=False,
-    show_irrelevant_outlines=False,
-):
-    """Draw concise object context without rank prefixes or opaque fills."""
-    if not objects:
+def _draw_object_instances(ax, planner, instances, scale, crop_origin, marker_radius_m=0.16):
+    """Draw compact, validated semantic anchors rather than raw tracker OBBs."""
+    if not instances:
         return 0
 
     cmap = plt.colormaps.get_cmap("tab20")
-    ranked_classes = list(dict.fromkeys(relevant_classes or []))
-    relevant_class_rank = (
-        None
-        if relevant_classes is None
-        else {class_name: rank for rank, class_name in enumerate(ranked_classes)}
-    )
-    candidates = []
-    for obj_id, obj in objects.items():
-        if int(obj.get("num_detections", 0)) < min_detections:
-            continue
-        footprint = _object_footprint_voxels(planner, obj)
-        if footprint is None:
-            continue
-        class_name = str(obj.get("class_name", "object"))
-        class_rank = None if relevant_class_rank is None else relevant_class_rank.get(class_name)
-        candidates.append((obj_id, obj, footprint, class_name, class_rank))
-
-    if relevant_class_rank is not None:
-        candidates.sort(
-            key=lambda item: (
-                item[4] is None,
-                item[4] if item[4] is not None else float("inf"),
-                -int(item[1].get("num_detections", 0)),
-                int(item[0]),
-            )
-        )
-    else:
-        candidates.sort(key=lambda item: (-int(item[1].get("num_detections", 0)), int(item[0])))
-
-    label_pool = candidates if (relevant_class_rank is None or fill_irrelevant_instances) else [
-        candidate for candidate in candidates if candidate[4] is not None
-    ]
-    limit = max(0, int(max_labeled_instances))
-    labeled_ids = {obj_id for obj_id, *_ in (label_pool if limit == 0 else label_pool[:limit])}
-
-    # Text uses only the class name: R#/C prefixes and tracker IDs have no
-    # decision semantics and made the old BEV materially harder to read.
-    label_step = max(2, int(round(0.24 / planner._voxel_size))) * scale
+    label_step = max(2, int(round(0.30 / planner._voxel_size))) * scale
     label_offsets = [(1, -1), (1, 1), (-1, -1), (-1, 1), (2, 0), (-2, 0)]
+    marker_radius = max(1.2, marker_radius_m / planner._voxel_size) * scale
     count = 0
-    for obj_id, _, footprint, class_name, class_rank in candidates:
-        is_labeled = obj_id in labeled_ids
-        if not is_labeled and not show_irrelevant_outlines:
-            continue
-        footprint = _shift_voxels(footprint, crop_origin)
-        polygon_xy = np.column_stack((footprint[:, 1] * scale, footprint[:, 0] * scale))
-        if not is_labeled:
-            ax.add_patch(
-                Polygon(
-                    polygon_xy,
-                    closed=True,
-                    facecolor="none",
-                    edgecolor="#777777",
-                    linewidth=0.55,
-                    alpha=0.42,
-                    zorder=4,
-                )
-            )
-            continue
-
-        color_index = int(obj_id) if class_rank is None else class_rank
+    for instance in instances:
+        anchor = _shift_voxels(instance["anchor"], crop_origin)
+        center = np.array([anchor[1] * scale, anchor[0] * scale])
+        color_index = int(instance["obj_id"]) if instance["class_rank"] is None else instance["class_rank"]
         color = cmap(color_index % cmap.N)
         ax.add_patch(
-            Polygon(
-                polygon_xy,
-                closed=True,
+            Circle(
+                center,
+                radius=marker_radius,
                 facecolor=color,
                 edgecolor="#333333",
-                linewidth=0.9,
-                alpha=0.28,
+                linewidth=0.8,
+                alpha=0.82,
                 zorder=5,
             )
         )
-        center = polygon_xy.mean(axis=0)
         offset = label_offsets[count % len(label_offsets)]
         label_xy = center + np.asarray(offset) * label_step
-        # Keep text inside the cropped canvas.  The previous clip-only policy
-        # could silently hide every semantic name at a map boundary.
+        # Every anchor is part of the crop.  Clamp only the short callout, not
+        # a remote object centre; this prevents the old edge-floating labels.
         x_min, x_max = sorted(ax.get_xlim())
         y_min, y_max = sorted(ax.get_ylim())
         label_xy[0] = np.clip(label_xy[0], x_min + 2, x_max - 2)
@@ -147,7 +224,7 @@ def _draw_object_instances(
             color="#4a4a4a", linewidth=0.45, alpha=0.70, zorder=5,
         )
         ax.text(
-            label_xy[0], label_xy[1], class_name,
+            label_xy[0], label_xy[1], instance["class_name"],
             ha="center", va="center", fontsize=7.2, color="black",
             bbox={"boxstyle": "round,pad=0.12", "fc": "white", "ec": "none", "alpha": 0.84},
             zorder=6,
@@ -378,6 +455,8 @@ def save_bev_visualization(
     max_labeled_instances=10, fill_irrelevant_instances=False,
     show_irrelevant_outlines=False, display_height=1.8, frontier_candidates=None,
     agent_voxel=None, agent_yaw=None, crop_padding_m=1.5, min_crop_size_m=6.0,
+    semantic_marker_radius_m=0.16, semantic_max_footprint_area_m2=6.0,
+    semantic_max_extent_m=4.0, semantic_support_radius_m=0.4,
 ):
     """Save a compact semantic BEV for VLM input.
 
@@ -390,7 +469,17 @@ def save_bev_visualization(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     bev, traversable, support = _build_planner_bev(planner, display_height)
+    semantic_instances = _prepare_semantic_instances(
+        planner, objects, int(min_object_detections), relevant_classes=relevant_classes,
+        max_labeled_instances=max_labeled_instances,
+        fill_irrelevant_instances=fill_irrelevant_instances,
+        trajectory_voxels=trajectory_voxels,
+        max_footprint_area_m2=float(semantic_max_footprint_area_m2),
+        max_extent_m=float(semantic_max_extent_m),
+        support_radius_m=float(semantic_support_radius_m),
+    )
     positions = [np.asarray(frontier.position, dtype=float)[:2] for frontier in (frontier_candidates or [])]
+    positions.extend(instance["anchor"] for instance in semantic_instances)
     bev, _, crop_origin = _crop_bev(
         bev, traversable, support, planner, trajectory_voxels, agent_voxel, positions,
         crop_padding_m, min_crop_size_m,
@@ -398,10 +487,8 @@ def save_bev_visualization(
     fig, ax = _new_bev_figure(bev)
     _draw_trajectory(ax, trajectory_voxels, 1, trajectory_arrow_stride, crop_origin)
     _draw_object_instances(
-        ax, planner, objects, 1, int(min_object_detections), crop_origin,
-        relevant_classes=relevant_classes, max_labeled_instances=max_labeled_instances,
-        fill_irrelevant_instances=fill_irrelevant_instances,
-        show_irrelevant_outlines=show_irrelevant_outlines,
+        ax, planner, semantic_instances, 1, crop_origin,
+        marker_radius_m=float(semantic_marker_radius_m),
     )
     _draw_frontier_candidates(ax, frontier_candidates, 1, crop_origin)
     _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, 1, crop_origin)

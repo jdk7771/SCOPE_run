@@ -1,7 +1,6 @@
 # General
 seed: 3407
-# exp_name: "exp_eval_goatbench"
-exp_name: "_scope_bev_vlm_gussion_ceping"
+exp_name: "metric-frontier-readable-bev"
 output_parent_dir: "results"
 scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
 scene_data_path: "/mnt/data/hm3d"
@@ -64,6 +63,13 @@ tsdf_bev_fill_irrelevant_instances: false  # true: use stable non-relevant insta
 tsdf_bev_show_irrelevant_object_outlines: false  # optionally retain unlabeled gray outlines for non-selected instances
 tsdf_bev_crop_padding_m: 1.5
 tsdf_bev_min_crop_size_m: 6.0
+# ConceptGraph's raw 3D OBB is only used as a validation hypothesis.  The
+# decision BEV renders a compact semantic anchor after these metric checks;
+# invalid/oversized boxes and boxes crossing executed paths are omitted.
+tsdf_bev_semantic_marker_radius_m: 0.16
+tsdf_bev_semantic_max_footprint_area_m2: 6.0
+tsdf_bev_semantic_max_extent_m: 4.0
+tsdf_bev_semantic_support_radius_m: 0.40
 # Generate the two structured BEVs before every high-level decision and attach
 # them to the VLM prompt.  F1..Fn are sorted by the existing SCOPE potential score.
 structured_bev_for_vlm: true
