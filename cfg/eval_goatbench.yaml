@@ -1,6 +1,6 @@
 # General
 seed: 3407
-exp_name: "exp_eval_goatbench"
+exp_name: "metric-frontier-readable-bev"
 output_parent_dir: "results"
 scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
 scene_data_path: "/mnt/data/hm3d"
@@ -52,10 +52,19 @@ extra_view_angle_deg_phase_2: 40
 
 # about tsdf, depth map, and frontier updates
 explored_depth: 1.7
-tsdf_grid_size: 0.1
+tsdf_grid_size: 0.05
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6
 planner:
+  # Keep frontier detection invariant to the TSDF voxel resolution.  These
+  # metric fields reproduce the original 10 cm physical thresholds at 5 cm.
+  frontier_neighbor_radius_m: 0.10
+  frontier_area_unknown_fraction_min: 1.00
+  frontier_area_unknown_fraction_max: 1.00
+  frontier_edge_unknown_fraction_min: 0.50
+  frontier_edge_unknown_fraction_max: 0.75
+  frontier_cluster_eps_m: 0.10
+  min_frontier_area_m2: 0.20
   eps: 1
   max_dist_from_cur_phase_1: 1  # when the target object is not found, explore the frontiers with this step length
   max_dist_from_cur_phase_2: 1  # when the target object is found, go to the target object with this step length
