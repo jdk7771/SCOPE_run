@@ -564,6 +564,8 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                     semantic_max_extent_m=float(getattr(cfg, "tsdf_bev_semantic_max_extent_m", 4.0)),
                                     semantic_support_radius_m=float(getattr(cfg, "tsdf_bev_semantic_support_radius_m", 0.4)),
                                     semantic_shape_dilation_m=float(getattr(cfg, "tsdf_bev_semantic_shape_dilation_m", 0.10)),
+                                    semantic_same_class_merge_radius_m=float(getattr(cfg, "tsdf_bev_semantic_same_class_merge_radius_m", 0.55)),
+                                    semantic_display_smoothing_m=float(getattr(cfg, "tsdf_bev_semantic_display_smoothing_m", 0.05)),
                                 )
                                 gaussian_candidates = [
                                     {"position": frontier.position, "scores": scores}
@@ -740,6 +742,8 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                 semantic_max_extent_m=float(getattr(cfg, "tsdf_bev_semantic_max_extent_m", 4.0)),
                                 semantic_support_radius_m=float(getattr(cfg, "tsdf_bev_semantic_support_radius_m", 0.4)),
                                 semantic_shape_dilation_m=float(getattr(cfg, "tsdf_bev_semantic_shape_dilation_m", 0.10)),
+                                semantic_same_class_merge_radius_m=float(getattr(cfg, "tsdf_bev_semantic_same_class_merge_radius_m", 0.55)),
+                                semantic_display_smoothing_m=float(getattr(cfg, "tsdf_bev_semantic_display_smoothing_m", 0.05)),
                             )
                             logging.info(f"Saved semantic BEV: {bev_path}")
                         except Exception as exc:

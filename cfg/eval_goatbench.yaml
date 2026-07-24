@@ -70,6 +70,12 @@ tsdf_bev_semantic_max_footprint_area_m2: 6.0
 tsdf_bev_semantic_max_extent_m: 4.0
 tsdf_bev_semantic_support_radius_m: 0.40
 tsdf_bev_semantic_shape_dilation_m: 0.10
+# Collapse only overlapping/nearby same-class ConceptGraph tracks.  Separate
+# furniture remains visible even if it has the same class label.
+tsdf_bev_semantic_same_class_merge_radius_m: 0.55
+# Display-only smoothing: preserve the TSDF/object mask and round its rendered
+# 5 cm contour for the VLM image.  Set to 0.0 to restore exact raster edges.
+tsdf_bev_semantic_display_smoothing_m: 0.05
 # Generate the two structured BEVs before every high-level decision and attach
 # them to the VLM prompt.  F1..Fn are SCOPE-score ranked but all valid
 # frontiers are presented when this value is 0 (the intended experiment).

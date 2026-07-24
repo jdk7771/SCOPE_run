@@ -124,6 +124,59 @@ def _shape_contains_trajectory(shape_mask, shape_origin, trajectory):
     return bool(np.any(shape_mask[local[valid, 0], local[valid, 1]])) if np.any(valid) else False
 
 
+def _semantic_shape_iou(first, second):
+    """Compute IoU of two compact semantic masks in global voxel coordinates."""
+    first_mask, first_origin = first["shape_mask"], np.rint(first["shape_origin"]).astype(int)
+    second_mask, second_origin = second["shape_mask"], np.rint(second["shape_origin"]).astype(int)
+    lower = np.maximum(first_origin, second_origin)
+    upper = np.minimum(
+        first_origin + np.asarray(first_mask.shape),
+        second_origin + np.asarray(second_mask.shape),
+    )
+    if np.any(upper <= lower):
+        return 0.0
+    first_lower = lower - first_origin
+    first_upper = upper - first_origin
+    second_lower = lower - second_origin
+    second_upper = upper - second_origin
+    first_overlap = first_mask[first_lower[0]:first_upper[0], first_lower[1]:first_upper[1]]
+    second_overlap = second_mask[second_lower[0]:second_upper[0], second_lower[1]:second_upper[1]]
+    intersection = int(np.count_nonzero(first_overlap & second_overlap))
+    union = int(np.count_nonzero(first_mask) + np.count_nonzero(second_mask) - intersection)
+    return float(intersection / union) if union else 0.0
+
+
+def _deduplicate_semantic_instances(candidates, voxel_size, merge_radius_m):
+    """Keep one representative for overlapping duplicate same-class tracks.
+
+    ConceptGraph association is intentionally permissive.  A cabinet observed
+    from several angles can consequently survive as multiple nearby tracks.
+    Rendering every track makes the decision BEV repeat one noun many times,
+    even though the extra tracks add no spatial evidence for the VLM.
+    """
+    if not candidates:
+        return []
+    merge_radius_voxels = max(0.0, float(merge_radius_m) / voxel_size)
+    kept = []
+    for candidate in candidates:
+        duplicate = False
+        for representative in kept:
+            if candidate["class_name"] != representative["class_name"]:
+                continue
+            distance = float(np.linalg.norm(candidate["anchor"] - representative["anchor"]))
+            if distance > merge_radius_voxels:
+                continue
+            # A substantial footprint overlap is the normal duplicate-track
+            # case.  The short-distance fallback handles sparse, disjoint
+            # observed surface fragments belonging to the same physical item.
+            if _semantic_shape_iou(candidate, representative) >= 0.20 or distance <= 0.25 / voxel_size:
+                duplicate = True
+                break
+        if not duplicate:
+            kept.append(candidate)
+    return kept
+
+
 def _prepare_semantic_instances(
     planner,
     objects,
@@ -136,6 +189,7 @@ def _prepare_semantic_instances(
     max_extent_m=4.0,
     support_radius_m=0.4,
     shape_dilation_m=0.10,
+    same_class_merge_radius_m=0.55,
 ):
     """Select only TSDF-consistent object anchors for a decision BEV.
 
@@ -237,6 +291,10 @@ def _prepare_semantic_instances(
     else:
         candidates.sort(key=lambda item: (-item["num_detections"], int(item["obj_id"])))
 
+    candidates = _deduplicate_semantic_instances(
+        candidates, planner._voxel_size, same_class_merge_radius_m,
+    )
+
     label_pool = candidates if (relevant_class_rank is None or fill_irrelevant_instances) else [
         candidate for candidate in candidates if candidate["class_rank"] is not None
     ]
@@ -254,7 +312,27 @@ def _shift_voxels(points, crop_origin):
     return array
 
 
-def _draw_object_instances(ax, planner, instances, scale, crop_origin):
+def _semantic_display_field(shape_mask, voxel_size, smoothing_m):
+    """Return a display-only, sub-voxel-smoothed field for semantic contours.
+
+    The original binary TSDF-supported mask remains the source of truth for
+    validation, association and navigation.  This field is used only by
+    Matplotlib to avoid visually distracting 5 cm stair-steps on object edges.
+    """
+    field = np.asarray(shape_mask, dtype=float)
+    smoothing_voxels = max(0.0, float(smoothing_m) / voxel_size)
+    if smoothing_voxels <= 0.0 or np.count_nonzero(field) < 4:
+        return field, 0.5
+    # Keep the blur below one cell.  It rounds a raster edge without shifting
+    # the semantic footprint by more than roughly one 5 cm voxel.
+    sigma = min(1.0, smoothing_voxels) * 0.65
+    smoothed = ndimage.gaussian_filter(field, sigma=sigma, mode="nearest")
+    if float(np.max(smoothed)) <= 0.5:
+        return field, 0.5
+    return smoothed, 0.5
+
+
+def _draw_object_instances(ax, planner, instances, scale, crop_origin, display_smoothing_m=0.0):
     """Draw TSDF-supported semantic regions and their concise class labels."""
     if not instances:
         return 0
@@ -270,15 +348,19 @@ def _draw_object_instances(ax, planner, instances, scale, crop_origin):
         color = cmap(color_index % cmap.N)
         shape_origin = _shift_voxels(instance["shape_origin"], crop_origin)
         shape_mask = instance["shape_mask"]
+        display_field, contour_level = _semantic_display_field(
+            shape_mask, planner._voxel_size, display_smoothing_m,
+        )
         rows = np.arange(shape_mask.shape[0]) + shape_origin[0]
         cols = np.arange(shape_mask.shape[1]) + shape_origin[1]
+        upper_level = max(float(np.max(display_field)) + 1e-3, contour_level + 1e-3)
         ax.contourf(
-            cols * scale, rows * scale, shape_mask.astype(np.uint8),
-            levels=[0.5, 1.5], colors=[color], alpha=0.48, zorder=5,
+            cols * scale, rows * scale, display_field,
+            levels=[contour_level, upper_level], colors=[color], alpha=0.48, zorder=5,
         )
         ax.contour(
-            cols * scale, rows * scale, shape_mask.astype(np.uint8),
-            levels=[0.5], colors=["#333333"], linewidths=0.70, zorder=6,
+            cols * scale, rows * scale, display_field,
+            levels=[contour_level], colors=["#333333"], linewidths=0.70, zorder=6,
         )
         offset = label_offsets[count % len(label_offsets)]
         label_xy = center + np.asarray(offset) * label_step
@@ -526,6 +608,8 @@ def save_bev_visualization(
     agent_voxel=None, agent_yaw=None, crop_padding_m=1.5, min_crop_size_m=6.0,
     semantic_max_footprint_area_m2=6.0, semantic_max_extent_m=4.0,
     semantic_support_radius_m=0.4, semantic_shape_dilation_m=0.10,
+    semantic_same_class_merge_radius_m=0.55,
+    semantic_display_smoothing_m=0.05,
 ):
     """Save a compact semantic BEV for VLM input.
 
@@ -547,6 +631,7 @@ def save_bev_visualization(
         max_extent_m=float(semantic_max_extent_m),
         support_radius_m=float(semantic_support_radius_m),
         shape_dilation_m=float(semantic_shape_dilation_m),
+        same_class_merge_radius_m=float(semantic_same_class_merge_radius_m),
     )
     positions = [np.asarray(frontier.position, dtype=float)[:2] for frontier in (frontier_candidates or [])]
     positions.extend(instance["anchor"] for instance in semantic_instances)
@@ -556,7 +641,10 @@ def save_bev_visualization(
     )
     fig, ax = _new_bev_figure(bev)
     _draw_trajectory(ax, trajectory_voxels, 1, trajectory_arrow_stride, crop_origin)
-    _draw_object_instances(ax, planner, semantic_instances, 1, crop_origin)
+    _draw_object_instances(
+        ax, planner, semantic_instances, 1, crop_origin,
+        display_smoothing_m=float(semantic_display_smoothing_m),
+    )
     _draw_frontier_candidates(ax, frontier_candidates, 1, crop_origin)
     _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, 1, crop_origin)
     ax.text(
