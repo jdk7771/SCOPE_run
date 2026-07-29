@@ -1,6 +1,6 @@
 # General
 seed: 3407
-exp_name: "metric-frontier-readable-bev"
+exp_name: "baseline_batch_frontier_potential_5cm"
 output_parent_dir: "results"
 scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
 scene_data_path: "/mnt/data/hm3d"
@@ -14,6 +14,12 @@ egocentric_views: true  # whether to add egocentric views when prompting vlm
 prefiltering: true  # whether to use prefiltering (you in fact cannot turn this off, since otherwise it will exceed the context length limit)
 top_k_categories: 10  # keep the top k relevant categories during prefiltering
 use_self_refine: true  # whether to use self-refine for snapshot choices on description tasks
+
+# frontier potential ablation
+enable_potential_estimation: true
+# true: one VLM request per step containing every new numbered frontier.
+# false: legacy baseline, one VLM request per new frontier.
+batch_frontier_potential: true
 
 # about detection model
 yolo_model_name: yolov8x-world.pt

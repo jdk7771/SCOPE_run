@@ -11,6 +11,7 @@ from pathlib import Path
 
 _OUTPUT_PATH = None
 _RECORDS = []
+_STAGE_RECORDS = []
 _METADATA = {}
 _STARTED_AT = None
 
@@ -21,10 +22,11 @@ def _utc_now():
 
 def configure_vlm_timing(output_dir, metadata=None):
     """Start a fresh timing report for one evaluation invocation."""
-    global _OUTPUT_PATH, _RECORDS, _METADATA, _STARTED_AT
+    global _OUTPUT_PATH, _RECORDS, _STAGE_RECORDS, _METADATA, _STARTED_AT
     _OUTPUT_PATH = Path(output_dir) / "vlm_timing.json"
     _OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     _RECORDS = []
+    _STAGE_RECORDS = []
     _METADATA = dict(metadata or {})
     _STARTED_AT = _utc_now()
     _write_report()
@@ -56,17 +58,44 @@ def _summary():
     }
 
 
+def _stage_summary():
+    grouped = defaultdict(list)
+    for record in _STAGE_RECORDS:
+        grouped[record["stage_type"]].append(record)
+    by_stage_type = {}
+    for stage_type, records in sorted(grouped.items()):
+        successful = [record["elapsed_seconds"] for record in records if record["success"]]
+        by_stage_type[stage_type] = {
+            "stages": len(records),
+            "successful_stages": len(successful),
+            "failed_stages": len(records) - len(successful),
+            "total_items": sum(record["item_count"] for record in records),
+            "mean_success_elapsed_seconds": (
+                sum(successful) / len(successful) if successful else None
+            ),
+            "min_success_elapsed_seconds": min(successful) if successful else None,
+            "max_success_elapsed_seconds": max(successful) if successful else None,
+        }
+    return by_stage_type
+
+
 def _write_report():
     if _OUTPUT_PATH is None:
         return
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "measurement": "Each record is one chat.completions.create attempt; retry sleep and local processing are excluded.",
         "started_at_utc": _STARTED_AT,
         "updated_at_utc": _utc_now(),
         "metadata": _METADATA,
         "records": _RECORDS,
         "summary": _summary(),
+        "stage_measurement": (
+            "A stage is end-to-end wall-clock time around local prompt assembly, "
+            "VLM request/retries, and response parsing."
+        ),
+        "stage_records": _STAGE_RECORDS,
+        "stage_summary": _stage_summary(),
     }
     try:
         fd, temporary_path = tempfile.mkstemp(prefix=".vlm_timing_", suffix=".json", dir=str(_OUTPUT_PATH.parent))
@@ -93,6 +122,20 @@ def record_vlm_response(call_type, response_seconds, success, attempt, error_typ
     _write_report()
 
 
+def record_vlm_stage(stage_type, elapsed_seconds, item_count, success):
+    """Persist end-to-end wall-clock timing for a higher-level VLM stage."""
+    if _OUTPUT_PATH is None:
+        return
+    _STAGE_RECORDS.append({
+        "timestamp_utc": _utc_now(),
+        "stage_type": str(stage_type),
+        "elapsed_seconds": round(float(elapsed_seconds), 6),
+        "item_count": int(item_count),
+        "success": bool(success),
+    })
+    _write_report()
+
+
 def log_vlm_timing_summary():
     if _OUTPUT_PATH is None:
         return
@@ -109,4 +152,14 @@ def log_vlm_timing_summary():
             "VLM timing [%s]: successful=%d/%d, mean=%s s",
             call_type, values["successful_responses"], values["request_attempts"],
             f"{type_mean:.3f}" if type_mean is not None else "n/a",
+        )
+    for stage_type, values in _stage_summary().items():
+        mean = values["mean_success_elapsed_seconds"]
+        logging.info(
+            "VLM stage [%s]: successful=%d/%d, items=%d, mean_wall=%s s",
+            stage_type,
+            values["successful_stages"],
+            values["stages"],
+            values["total_items"],
+            f"{mean:.3f}" if mean is not None else "n/a",
         )

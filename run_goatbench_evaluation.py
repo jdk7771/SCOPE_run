@@ -29,7 +29,7 @@ from src.goatbench_utils import prepare_goatbench_navigation_goals
 from src.query_vlm_goatbench import query_vlm_for_response
 from src.logger_goatbench import Logger
 from src.potential_graph import PotentialGraph
-from src.potential_estimation_gpt_goal import get_potential_estimation
+from src.frontier_potential_batch import update_new_frontier_potentials
 from src.vlm_timing import configure_vlm_timing, log_vlm_timing_summary
 
 
@@ -369,46 +369,13 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1):
                     if not update_success:
                         logging.info("Warning! Update frontier map failed!")
 
-                    # Update potential graph with current frontiers
-                    if len(tsdf_planner.frontiers) > 0:
-                        if not hasattr(potential_graph, '_analyzed_frontiers'):
-                            potential_graph._analyzed_frontiers = set()
-
-                        for i, frontier in enumerate(tsdf_planner.frontiers):
-
-                            frontier_key = (tuple(frontier.position), frontier.image)
-
-                            if frontier_key in potential_graph._analyzed_frontiers: 
-                                continue
-
-                            if frontier.feature is not None and getattr(cfg, 'enable_potential_estimation', True):
-                                try:
-                                    potential_text = get_potential_estimation(subtask_metadata, frontier.feature)
-                                    logging.info(f"Frontier {i} potential estimation: {potential_text}")
-                                    
-                                    potential_graph.update_from_frontier(
-                                        frontier=frontier,
-                                        subtask_metadata=subtask_metadata,
-                                        occupied_map=None,
-                                        potential_text=potential_text
-                                    )
-
-                                    potential_graph._analyzed_frontiers.add(frontier_key)
-
-                                    # Log the resulting potential score
-                                    frontier_world_pos = potential_graph._voxel_to_world(frontier.position)
-                                    final_score = potential_graph.get_potential_at_position(np.array([frontier_world_pos[0], frontier_world_pos[2]]))
-                                    logging.info(f"Frontier {i} final potential score: {final_score:.2f}")
-                                    
-                                except Exception as e:
-                                    logging.warning(f"Failed to get potential estimation for frontier {i}: {e}")
-                                    # Update with default scores if estimation fails
-                                    potential_graph.update_from_frontier(
-                                        frontier=frontier,
-                                        subtask_metadata=subtask_metadata,
-                                        occupied_map=None,
-                                        potential_text=None
-                                    )
+                    # Score newly created frontiers before the normal VLM decision.
+                    update_new_frontier_potentials(
+                        potential_graph,
+                        tsdf_planner.frontiers,
+                        subtask_metadata,
+                        cfg,
+                    )
 
                     # (4) Choose the next navigation point by querying the VLM
                     if cfg.choose_every_step:
