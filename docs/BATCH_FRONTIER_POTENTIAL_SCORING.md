@@ -21,6 +21,12 @@ task + optional goal image + F_0 image + F_1 image + F_2 image
 -> JSON scores for F_0, F_1, and F_2
 ```
 
+The `F_i` labels are local to that one request and always run from `F_0` to
+`F_{n-1}`, even if the planner's current frontier indices are sparse. The
+implementation maps these local labels back to the original planner frontiers
+after parsing, which prevents the VLM from returning a natural local label that
+would otherwise be mistaken for an unrequested global ID.
+
 The task contains the question, task type, target class, and goal image when
 available. The model must return exactly one JSON object with one item for every
 numbered frontier:

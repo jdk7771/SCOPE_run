@@ -252,7 +252,13 @@ def _parse_batch_response(response_text, requested_ids):
 def format_batch_content(
     indexed_images: Sequence[Tuple[int, object]], question_text, question_image_path, metadata
 ):
-    """Build one multimodal request containing every new frontier in this step."""
+    """Build one multimodal request containing every new frontier in this step.
+
+    ``indexed_images`` must use batch-local IDs (``0`` through ``n - 1``).
+    Keeping these labels local prevents a VLM from confusing sparse planner
+    indices from different navigation steps with the ordered images in this
+    single request.
+    """
     content = [
         {
             "type": "text",
@@ -266,8 +272,10 @@ def format_batch_content(
                 '"explorability":"Low|Medium|High",'
                 '"goal_relevance":"Low|Medium|High",'
                 '"potential_score":1.0,"explanation":"2-3 sentences"}]}\n\n'
-                "Include every supplied ID exactly once. potential_score must be a "
-                "number from 1.0 to 5.0.\n\n"
+                "The frontier labels are batch-local: the first image is F_0, "
+                "the second is F_1, and so on. Include every supplied ID exactly "
+                "once; do not use IDs from an earlier request. potential_score "
+                "must be a number from 1.0 to 5.0.\n\n"
                 "Definitions:\n"
                 "- semantic_richness: meaningful objects, structures, or cues visible.\n"
                 "- explorability: new accessible regions, paths, doors, corridors, or stairs.\n"
@@ -329,9 +337,11 @@ def get_batch_potential_estimations(
 ) -> Optional[Dict[int, str]]:
     """Score all newly-created frontiers from one navigation step in one VLM call.
 
-    Returns legacy score text keyed by the *current frontier index*.  A request
-    failure returns ``None``; malformed individual items are omitted so they can
-    be attempted again in a later step.
+    Returns legacy score text keyed by the *current frontier index*. The VLM is
+    shown contiguous batch-local labels, which are mapped back to the planner's
+    possibly sparse current indices before returning. A request failure returns
+    ``None``; malformed individual items are omitted so they can be attempted
+    again in a later step.
     """
     if not indexed_images:
         return {}
@@ -340,12 +350,19 @@ def get_batch_potential_estimations(
     other_error_retries = 0
     max_rate_limit_retries = 30
     max_other_error_retries = 15
-    requested_ids = [frontier_id for frontier_id, _ in indexed_images]
+    local_to_frontier_id = {
+        local_id: frontier_id
+        for local_id, (frontier_id, _) in enumerate(indexed_images)
+    }
+    local_images = [
+        (local_id, image) for local_id, (_, image) in enumerate(indexed_images)
+    ]
+    requested_ids = list(local_to_frontier_id)
     message_text = [
         {
             "role": "user",
             "content": format_batch_content(
-                indexed_images,
+                local_images,
                 metadata["question"],
                 metadata.get("image"),
                 metadata,
@@ -376,7 +393,11 @@ def get_batch_potential_estimations(
             )
             response_text = completion.choices[0].message.content
             try:
-                return _parse_batch_response(response_text, requested_ids)
+                parsed_local = _parse_batch_response(response_text, requested_ids)
+                return {
+                    local_to_frontier_id[local_id]: potential_text
+                    for local_id, potential_text in parsed_local.items()
+                }
             except (json.JSONDecodeError, ValueError, TypeError) as error:
                 logging.warning("Unable to parse batch potential response: %s", error)
                 logging.debug("Raw batch potential response: %r", response_text)
