@@ -61,12 +61,12 @@ task + F_0 image + F_1 image + F_2 image
 
 ## 4. 核心指标
 
-| 结果 | 任务数 | Snapshot success | Distance success | Snapshot SPL | Distance SPL | 耗时 | VLM 成功请求 |
+| 结果 | 任务数 | Snapshot success | Distance success | Snapshot SPL | Distance SPL | 完成段耗时 | VLM 成功请求 |
 | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: |
 | baseline_ceping split 1 | 278 | **20.50%** | 40.65% | **17.13%** | **29.11%** | 15:39:34 | 4,059 |
-| baseline_metric_control split 1 | 278 | **20.50%** | **44.24%** | 16.29% | **31.66%** | **14:02:41** | 4,422 |
+| baseline_metric_control split 1 | 278 | **20.50%** | **44.24%** | 16.29% | **31.66%** | **14:02:41** | 3,461 |
 | batch reason1 | 278 | 19.78% | 40.65% | 15.34% | 28.41% | 17:21:19 | 4,841 |
-| batch reason2 | 278 | 17.99% | 40.65% | 15.54% | 28.88% | 14:45:41 | **3,511** |
+| batch reason2 | 278 | 17.99% | 40.65% | 15.54% | 28.88% | 14:45:41 | 3,511 |
 
 说明：
 
@@ -76,15 +76,15 @@ task + F_0 image + F_1 image + F_2 image
 
 ## 5. 时间和 batch stage 结果
 
-时间和调用开销：
+时间和调用开销，详细核实见 `../结果/时间和VLM调用核实.md`：
 
-| 方法 | 总耗时 | 相对正式 baseline/fix | 平均每 task | VLM 成功请求 | 平均 API 响应 | 估算 API 响应总时长 |
+| 方法 | 完成段耗时 | log 累计尝试时间 | 相对正式 baseline/fix 完成段 | VLM 成功请求 | 全 log HTTP POST | 估算 API 响应总时长 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| baseline_metric_control split 1 | **14:02:41** | - | **3.03 min** | 4,422 | 6.236 s | 7:39:34 |
-| batch reason1 | 17:21:19 | +3:18:38 | 3.75 min | 4,841 | 6.077 s | 8:10:20 |
-| batch reason2 | 14:45:41 | +0:43:00 | 3.19 min | **3,511** | 6.560 s | **6:23:54** |
+| baseline_metric_control split 1 | **14:02:41** | 15:14:15 | - | **3,461** | 3,729 | **06:06:04** |
+| batch reason1 | 17:21:19 | 17:21:19 | +3:18:38 | 4,841 | 4,844 | 08:10:19 |
+| batch reason2 | 14:45:41 | 14:45:41 | +0:43:00 | 3,511 | **3,511** | 06:23:52 |
 
-`batch reason2` 相比正式 baseline/fix 少 911 次 VLM 成功请求，估算 API 响应总时长少约 1:15:40；但 wall-clock 总耗时仍多 43 分钟。说明 batch scoring 能减少请求数，但运行时间还会被 batch prompt 复杂度、解析、本地处理、导航执行和任务轨迹影响。
+这里需要特别注意：`baseline_metric_control split 1` 的 VLM 成功请求是 3,461，不是 4,422；4,422 是 baseline/fix split 3 的统计。`batch reason2` 相比正式 baseline/fix split 1 多 50 次 VLM 成功请求，不能说少 911 次。若看全 log HTTP POST，reason2 比 baseline/fix 少 218 次，但 baseline/fix 的 3,729 包含 01:11:34 中断段，所以这不是完全公平的完成段对比。
 
 `vlm_timing.json` 中的 `stage_summary.frontier_potential_batch_step` 更能说明 batch 逻辑是否稳定：
 
@@ -97,14 +97,14 @@ task + F_0 image + F_1 image + F_2 image
 
 - 第一次 `baseline_all—new-frontier_reason` 失败 stage 很多，说明 batch 请求/解析/编号映射还不稳定。
 - 第二次 `baseline_all—new-frontier_reason2` 修复 batch-local frontier ID 后，stage 成功率明显正常。
-- 第二次 VLM 成功请求数降到 3,511，比 baseline_ceping 的 4,059 更少。
+- 第二次 VLM 成功请求数降到 3,511，比 baseline_ceping 的 4,059 更少，也比 reason1 的 4,841 更少。
 
 ## 6. 结论
 
 这个分支的结论是：
 
 - batch frontier potential scoring 在修复局部编号映射后是可行的。
-- 它可以减少部分 VLM 请求，并让 batch stage 成功率变正常。
+- 它能显著减少 reason1 中由 batch 失败引入的额外请求，并让 batch stage 成功率变正常。
 - 但它没有带来导航成功率提升：
   - Distance success 仍为 40.65%。
   - 低于当前正式 baseline/fix split 1 的 44.24%。

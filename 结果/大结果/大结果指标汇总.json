@@ -1,7 +1,8 @@
 {
   "整理日期": "2026-08-05",
   "实验": "baseline/fix-tsdf05cm vs feat/metric-frontier-readable-bev",
-  "说明": "两个方法都使用 5 cm TSDF，并且都完成 GOAT-Bench split 1/2/3。",
+  "说明": "两个方法都使用 5 cm TSDF，并且都完成 GOAT-Bench split 1/2/3。时间字段区分最终完成段与同一 log 内中断/续跑累计尝试时间。",
+  "时间核实文件": "../时间和VLM调用核实.md",
   "结果": [
     {
       "方法": "baseline/fix 0.05m",
@@ -12,7 +13,12 @@
       "Distance success (%)": 44.24,
       "Snapshot SPL (%)": 16.29,
       "Distance SPL (%)": 31.66,
-      "耗时": "14:02:41"
+      "完成段耗时": "14:02:41",
+      "log累计尝试时间": "15:14:15",
+      "VLM成功请求": 3461,
+      "全log HTTP POST": 3729,
+      "API响应总时长": "06:06:04",
+      "时间说明": "前 01:11:34 中断段；续跑跳过 2 个已完成 scene。"
     },
     {
       "方法": "metric readable-BEV",
@@ -23,7 +29,12 @@
       "Distance success (%)": 56.83,
       "Snapshot SPL (%)": 23.18,
       "Distance SPL (%)": 37.43,
-      "耗时": "20:09:44"
+      "完成段耗时": "20:09:44",
+      "log累计尝试时间": "20:09:44",
+      "VLM成功请求": 4925,
+      "全log HTTP POST": 4936,
+      "API响应总时长": "10:38:56",
+      "时间说明": "HTTP POST 比 timing summary 多 11 次。"
     },
     {
       "方法": "baseline/fix 0.05m",
@@ -34,7 +45,11 @@
       "Distance success (%)": 38.43,
       "Snapshot SPL (%)": 13.75,
       "Distance SPL (%)": 26.37,
-      "耗时": "13:35:03"
+      "完成段耗时": "13:35:03",
+      "log累计尝试时间": "13:35:03",
+      "VLM成功请求": 3447,
+      "全log HTTP POST": 3447,
+      "API响应总时长": "05:58:36"
     },
     {
       "方法": "metric readable-BEV",
@@ -45,7 +60,11 @@
       "Distance success (%)": 41.18,
       "Snapshot SPL (%)": 15.92,
       "Distance SPL (%)": 29.12,
-      "耗时": "20:35:10"
+      "完成段耗时": "20:35:10",
+      "log累计尝试时间": "20:35:10",
+      "VLM成功请求": 5254,
+      "全log HTTP POST": 5254,
+      "API响应总时长": "10:57:27"
     },
     {
       "方法": "baseline/fix 0.05m",
@@ -56,7 +75,11 @@
       "Distance success (%)": 36.82,
       "Snapshot SPL (%)": 11.38,
       "Distance SPL (%)": 25.33,
-      "耗时": "17:24:40"
+      "完成段耗时": "17:24:40",
+      "log累计尝试时间": "17:24:40",
+      "VLM成功请求": 4422,
+      "全log HTTP POST": 4422,
+      "API响应总时长": "07:39:36"
     },
     {
       "方法": "metric readable-BEV",
@@ -67,7 +90,12 @@
       "Distance success (%)": 45.49,
       "Snapshot SPL (%)": 18.78,
       "Distance SPL (%)": 30.60,
-      "耗时": "06:29:45"
+      "完成段耗时": "06:29:45",
+      "log累计尝试时间": "28:42:41",
+      "VLM成功请求": 1599,
+      "全log HTTP POST": 6678,
+      "API响应总时长": "03:45:56",
+      "时间说明": "前 22:12:56 中断段；续跑跳过 27 个已完成 scene。"
     }
   ],
   "合并结果": [
@@ -78,7 +106,12 @@
       "Snapshot success (%)": 18.27,
       "Distance success (%)": 39.88,
       "Snapshot SPL (%)": 13.84,
-      "Distance SPL (%)": 27.86
+      "Distance SPL (%)": 27.86,
+      "完成段耗时合计": "45:02:24",
+      "log累计尝试时间合计": "46:13:58",
+      "VLM成功请求合计": 11330,
+      "全log HTTP POST合计": 11598,
+      "API响应总时长合计": "19:44:16"
     },
     {
       "方法": "metric readable-BEV",
@@ -87,7 +120,12 @@
       "Snapshot success (%)": 26.91,
       "Distance success (%)": 48.02,
       "Snapshot SPL (%)": 19.39,
-      "Distance SPL (%)": 32.49
+      "Distance SPL (%)": 32.49,
+      "完成段耗时合计": "47:14:39",
+      "log累计尝试时间合计": "69:27:35",
+      "VLM成功请求合计": 11778,
+      "全log HTTP POST合计": 16868,
+      "API响应总时长合计": "25:22:19"
     }
   ],
   "提升": {
@@ -95,6 +133,12 @@
     "Distance success (pp)": 8.14,
     "Snapshot SPL (pp)": 5.55,
     "Distance SPL (pp)": 4.63
+  },
+  "时间差值_metric_minus_baseline": {
+    "完成段耗时": "02:12:15",
+    "log累计尝试时间": "23:13:37",
+    "VLM成功请求": 448,
+    "全log HTTP POST": 5270,
+    "API响应总时长": "05:38:03"
   }
 }
-

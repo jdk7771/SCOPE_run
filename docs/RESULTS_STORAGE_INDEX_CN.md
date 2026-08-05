@@ -12,11 +12,11 @@
 | 类型 | 文件名示例 | 作用 |
 | --- | --- | --- |
 | 配置 | `eval_goatbench.yaml` | 保存本次运行使用的关键配置，例如 `exp_name`、`tsdf_grid_size`、是否启用 `structured_bev_for_vlm`、是否启用 `batch_frontier_potential`。 |
-| 日志 | `log_0.00_1.00_1.log` | 保存运行过程和最终耗时，例如 `All scenes finish`。文件名最后的 `1/2/3` 对应 GOAT-Bench episode split。 |
+| 日志 | `log_0.00_1.00_1.log` | 保存运行过程和最终耗时，例如 `All scenes finish`。文件名最后的 `1/2/3` 对应 GOAT-Bench episode split；如果同一 log 内时间戳回到 `00:00:00`，说明存在中断后续跑。 |
 | success 指标 | `success_by_snapshot_0.0_1.0_1.pkl`、`success_by_distance_0.0_1.0_1.pkl` | 每个 task 的成功标记。`snapshot` 是严格对象/snapshot 成功，`distance` 是距离成功。 |
 | SPL 指标 | `spl_by_snapshot_0.0_1.0_1.pkl`、`spl_by_distance_0.0_1.0_1.pkl` | 每个 task 的 SPL 值。 |
 | 任务类型指标 | `success_by_task_0.0_1.0_1.pkl`、`spl_by_task_0.0_1.0_1.pkl` | 按 `image/object/description` 三类保存的列表。 |
-| VLM timing | `vlm_timing.json` | 每次 VLM API 请求的耗时；batch 小实验还包含 batch stage 成功/失败统计。 |
+| VLM timing | `vlm_timing.json` | 每次 VLM API 请求的耗时；batch 小实验还包含 batch stage 成功/失败统计。发生续跑时，它可能只覆盖最后完成段。 |
 | snapshot/frame 统计 | `n_total_snapshots_*.json`、`n_filtered_snapshots_*.json`、`n_total_frames_*.json` | 记录运行中 snapshot 和 frame 数量。 |
 | 总表 | `metrics/metrics_summary.csv`、`metrics/metrics_summary.json` | 已从 pkl/json 汇总出的表格，方便直接读数。 |
 | manifest | `manifest.json` | 记录每个 artifact 来源路径、分支、核心代码 ref、已复制文件和 timing 汇总。 |
@@ -80,10 +80,13 @@ print(score)
 
 batch 小实验中，`frontier_potential_batch_step` 是更重要的 stage 指标；它记录一次 batch 处理多个 frontier 是否完整成功。
 
+注意：本次结果中 `baseline/fix` split 1 和 `metric readable-BEV` split 3 都有中断后续跑。时间和 VLM 调用数应以日志分段核实为准，中文整理目录中的 `结果/时间和VLM调用核实.md` 已单独列出完成段运行时间、log 累计尝试时间、VLM 成功请求和全 log HTTP POST。
+
 ## 5. 推荐阅读顺序
 
 1. `各分支说明.md`：先看分支和实验总览。
-2. `docs/EXPERIMENT_MAIN_BASELINE_VS_METRIC_READABLE_BEV_CN.md`：看大实验，baseline/fix vs readable-BEV。
-3. `docs/EXPERIMENT_BATCH_FRONTIER_POTENTIAL_CN.md`：看小实验，batch frontier potential。
-4. `metrics/metrics_summary.csv`：查所有结果的原始汇总行。
-5. `artifacts/*`：需要复算指标或审计日志时再进入。
+2. `结果/时间和VLM调用核实.md`：先确认运行时间和 VLM 调用口径。
+3. `docs/EXPERIMENT_MAIN_BASELINE_VS_METRIC_READABLE_BEV_CN.md`：看大实验，baseline/fix vs readable-BEV。
+4. `docs/EXPERIMENT_BATCH_FRONTIER_POTENTIAL_CN.md`：看小实验，batch frontier potential。
+5. `metrics/metrics_summary.csv`：查所有结果的原始汇总行。
+6. `artifacts/*`：需要复算指标或审计日志时再进入。

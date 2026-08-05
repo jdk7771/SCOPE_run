@@ -19,7 +19,7 @@
 | `n_total_snapshots*.json` | 每个 task 的总 snapshot 数。 |
 | `n_filtered_snapshots*.json` | 每个 task 过滤后的 snapshot 数。 |
 | `n_total_frames*.json` | 每个 task 的 frame 数。 |
-| `vlm_timing.json` | VLM 请求耗时和调用统计。 |
+| `vlm_timing.json` | VLM 请求耗时和调用统计；如果发生续跑，它可能只覆盖最后完成段。 |
 
 ## 文件名里的 split
 
@@ -34,6 +34,21 @@ success_by_distance_0.0_1.0_3.pkl  -> split 3 distance success
 ```
 
 不带 split 后缀的文件，例如 `success_by_distance.pkl`，是该结果目录下多个 split 的合并版本。
+
+## 怎么读时间和 VLM 调用
+
+时间和 VLM 调用不要只看单个 `vlm_timing.json`。本次结果里有两处续跑：
+
+- `baseline/fix` split 1：前面有 01:11:34 中断段，最后完成段是 14:02:41，log 累计尝试时间是 15:14:15。
+- `metric readable-BEV` split 3：前面有 22:12:56 中断段，最后完成段是 06:29:45，log 累计尝试时间是 28:42:41。
+
+完整核实见 `时间和VLM调用核实.md`。里面同时列出：
+
+- 完成段运行时间。
+- log 累计尝试时间。
+- 日志末尾 `VLM timing summary` 的成功请求数。
+- 全 log 里的 `HTTP Request: POST` 计数。
+- 可恢复的 API 响应总时长。
 
 ## 怎么重新计算一个指标
 

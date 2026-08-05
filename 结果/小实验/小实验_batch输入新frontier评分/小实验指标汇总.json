@@ -2,7 +2,8 @@
   "小实验": "batch 输入新 frontier 评分",
   "对应分支": "feat/batch-frontier-potential-scoring",
   "核心代码ref": "dbbab92",
-  "说明": "把 frontier potential scoring 从逐 frontier 请求改成 batch 请求。这里不是 readable-BEV 主方法本身。",
+  "说明": "把 frontier potential scoring 从逐 frontier 请求改成 batch 请求。这里不是 readable-BEV 主方法本身。时间字段区分最终完成段与同一 log 内中断/续跑累计尝试时间。",
+  "时间核实文件": "../../时间和VLM调用核实.md",
   "核心指标": [
     {
       "结果": "旧 baseline_ceping split 1",
@@ -13,8 +14,12 @@
       "Distance success (%)": 40.65,
       "Snapshot SPL (%)": 17.13,
       "Distance SPL (%)": 29.11,
-      "耗时": "15:39:34",
-      "VLM成功请求": 4059
+      "完成段耗时": "15:39:34",
+      "log累计尝试时间": "15:39:34",
+      "VLM成功请求": 4059,
+      "全log HTTP POST": 4060,
+      "API响应总时长": "07:07:25",
+      "时间说明": "历史 pilot，不是正式主对照。"
     },
     {
       "结果": "当前 baseline/fix split 1",
@@ -25,8 +30,12 @@
       "Distance success (%)": 44.24,
       "Snapshot SPL (%)": 16.29,
       "Distance SPL (%)": 31.66,
-      "耗时": "14:02:41",
-      "VLM成功请求": 4422
+      "完成段耗时": "14:02:41",
+      "log累计尝试时间": "15:14:15",
+      "VLM成功请求": 3461,
+      "全log HTTP POST": 3729,
+      "API响应总时长": "06:06:04",
+      "时间说明": "前 01:11:34 中断段；不能用 split 3 的 4422 代表 split 1。"
     },
     {
       "结果": "batch reason1",
@@ -37,15 +46,19 @@
       "Distance success (%)": 40.65,
       "Snapshot SPL (%)": 15.34,
       "Distance SPL (%)": 28.41,
-      "耗时": "17:21:19",
+      "完成段耗时": "17:21:19",
+      "log累计尝试时间": "17:21:19",
       "VLM成功请求": 4841,
+      "全log HTTP POST": 4844,
+      "API响应总时长": "08:10:19",
       "batch_stage": {
         "batch_stages": 1285,
         "成功stages": 161,
         "失败stages": 1124,
         "total_frontier_items": 2098,
         "成功stage平均耗时": "9.135 s"
-      }
+      },
+      "时间说明": "batch stage 大量失败。"
     },
     {
       "结果": "batch reason2",
@@ -56,16 +69,20 @@
       "Distance success (%)": 40.65,
       "Snapshot SPL (%)": 15.54,
       "Distance SPL (%)": 28.88,
-      "耗时": "14:45:41",
+      "完成段耗时": "14:45:41",
+      "log累计尝试时间": "14:45:41",
       "VLM成功请求": 3511,
+      "全log HTTP POST": 3511,
+      "API响应总时长": "06:23:52",
       "batch_stage": {
         "batch_stages": 618,
         "成功stages": 614,
         "失败stages": 4,
         "total_frontier_items": 983,
         "成功stage平均耗时": "6.683 s"
-      }
+      },
+      "时间说明": "修复 batch-local frontier ID 后稳定。"
     }
   ],
-  "结论": "batch-local frontier ID 修复后流程稳定，也减少了一些 VLM 成功请求，但导航成功率没有提升，因此作为小实验/效率探索保留，不作为主方法。"
+  "结论": "batch-local frontier ID 修复后流程稳定，reason2 相比 reason1 和旧 baseline pilot 更省请求；但相对当前正式 baseline/fix split 1，导航成功率没有提升，也没有严格证明 VLM 成功请求更少。因此它作为小实验/效率探索保留，不作为主方法。"
 }

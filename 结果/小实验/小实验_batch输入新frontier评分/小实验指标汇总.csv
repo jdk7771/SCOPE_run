@@ -1,6 +1,5 @@
-结果,对应分支,split,任务数,Snapshot success (%),Distance success (%),Snapshot SPL (%),Distance SPL (%),耗时,VLM成功请求,batch stages,成功stages,失败stages,total frontier items,成功stage平均耗时
-旧 baseline_ceping split 1,baseline/fix-tsdf05cm,1,278,20.50,40.65,17.13,29.11,15:39:34,4059,,,,,
-当前 baseline/fix split 1,baseline/fix-tsdf05cm,1,278,20.50,44.24,16.29,31.66,14:02:41,4422,,,,,
-batch reason1,feat/batch-frontier-potential-scoring,1,278,19.78,40.65,15.34,28.41,17:21:19,4841,1285,161,1124,2098,9.135 s
-batch reason2,feat/batch-frontier-potential-scoring,1,278,17.99,40.65,15.54,28.88,14:45:41,3511,618,614,4,983,6.683 s
-
+结果,对应分支,split,任务数,Snapshot success (%),Distance success (%),Snapshot SPL (%),Distance SPL (%),完成段耗时,log累计尝试时间,VLM成功请求,全log HTTP POST,API响应总时长,batch stages,成功stages,失败stages,total frontier items,成功stage平均耗时,时间说明
+旧 baseline_ceping split 1,baseline/fix-tsdf05cm,1,278,20.50,40.65,17.13,29.11,15:39:34,15:39:34,4059,4060,07:07:25,,,,,,历史 pilot，不是正式主对照
+当前 baseline/fix split 1,baseline/fix-tsdf05cm,1,278,20.50,44.24,16.29,31.66,14:02:41,15:14:15,3461,3729,06:06:04,,,,,,前 01:11:34 中断段；不能用 split 3 的 4422 代表 split 1
+batch reason1,feat/batch-frontier-potential-scoring,1,278,19.78,40.65,15.34,28.41,17:21:19,17:21:19,4841,4844,08:10:19,1285,161,1124,2098,9.135 s,batch stage 大量失败
+batch reason2,feat/batch-frontier-potential-scoring,1,278,17.99,40.65,15.54,28.88,14:45:41,14:45:41,3511,3511,06:23:52,618,614,4,983,6.683 s,修复 batch-local frontier ID 后稳定

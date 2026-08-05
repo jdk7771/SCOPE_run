@@ -6,4 +6,4 @@
 
 | 小实验 | 对应分支 | 主要文档 | 做什么 | 结论 |
 | --- | --- | --- | --- | --- |
-| `小实验_batch输入新frontier评分/` | `feat/batch-frontier-potential-scoring` | `实验说明.md`、`对比结果.md` | 把新 frontier 的 potential scoring 从逐个 VLM 请求改成 batch 请求。 | batch-local frontier ID 修复后流程稳定一些、VLM 成功请求数下降，但导航成功率没有提升，不作为主方法。 |
+| `小实验_batch输入新frontier评分/` | `feat/batch-frontier-potential-scoring` | `实验说明.md`、`对比结果.md` | 把新 frontier 的 potential scoring 从逐个 VLM 请求改成 batch 请求。 | batch-local frontier ID 修复后流程稳定一些，相比 reason1 和旧 pilot 请求数下降；但相对正式 baseline/fix 导航成功率没有提升，不作为主方法。 |

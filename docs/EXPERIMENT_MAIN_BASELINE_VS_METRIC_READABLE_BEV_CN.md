@@ -66,7 +66,7 @@
 
 ## 4. 三个 episode 的核心指标
 
-| Episode split | 任务数 | 方法 | Snapshot success | Distance success | Snapshot SPL | Distance SPL | 耗时 |
+| Episode split | 任务数 | 方法 | Snapshot success | Distance success | Snapshot SPL | Distance SPL | 完成段耗时 |
 | --- | ---: | --- | ---: | ---: | ---: | ---: | --- |
 | split 1 | 278 | baseline/fix | 20.50% | 44.24% | 16.29% | 31.66% | 14:02:41 |
 | split 1 | 278 | metric readable-BEV | **33.09%** | **56.83%** | **23.18%** | **37.43%** | 20:09:44 |
@@ -93,23 +93,25 @@
 
 ## 6. 运行时间和 VLM 调用时间
 
-三 split 的 wall-clock 总耗时：
+时间这里必须分两个口径看，详细核实见 `../结果/时间和VLM调用核实.md`。
 
-| 方法 | split 1 | split 2 | split 3 | 总耗时 | 平均每 task |
+| 方法 | split 1 完成段 | split 2 完成段 | split 3 完成段 | 完成段合计 | log 累计尝试合计 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| baseline/fix | 14:02:41 | 13:35:03 | 17:24:40 | 45:02:24 | 200.2 s |
-| metric readable-BEV | 20:09:44 | 20:35:10 | 06:29:45 | 47:14:39 | 210.0 s |
+| baseline/fix | 14:02:41 | 13:35:03 | 17:24:40 | 45:02:24 | 46:13:58 |
+| metric readable-BEV | 20:09:44 | 20:35:10 | 06:29:45 | 47:14:39 | 69:27:35 |
 
-readable-BEV 总耗时比 baseline/fix 多 2:12:15，平均每个 task 多约 9.8 秒。这个开销相对成功率提升可以接受，但汇报时需要说明主方法不是“更快”，而是“更准”。
+如果只看最终完成段，readable-BEV 比 baseline/fix 多 2:12:15，平均每个 task 多约 9.8 秒。这个口径适合描述最终结果文件对应的完成运行。
 
-当前 artifact 中的 `vlm_timing.json` 标记为 split 3。它记录每次 `chat.completions.create` 的 API 响应时间，不包含本地图像准备、导航执行和 retry sleep。
+但它不是完整尝试成本：baseline/fix split 1 前面有 01:11:34 中断段；metric readable-BEV split 3 前面有 22:12:56 中断段，续跑时跳过 27 个已完成 scene。若把同一 log 中中断后续跑也计入，readable-BEV 比 baseline/fix 多 23:13:37。
 
-| 方法 | split | VLM 成功请求 | 平均 API 响应 | 估算 API 响应总时长 | decision 平均响应 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| baseline/fix | 3 | 4,422 | 6.236 s | 7:39:34 | 11.111 s |
-| metric readable-BEV | 3 | 1,599 | 8.478 s | 3:45:56 | 14.728 s |
+VLM 调用也要按日志末尾 summary 和全 log HTTP POST 分开看：
 
-可见 readable-BEV 的单次 decision 请求更慢，但该 timing 文件中请求次数更少，所以 API 响应总时长更低。最终 wall-clock 还受建图、图像生成、导航执行和任务轨迹影响，不能只用 VLM API 时间解释。
+| 方法 | VLM 成功请求合计 | 全 log HTTP POST 合计 | API 响应总时长合计 | 说明 |
+| --- | ---: | ---: | ---: | --- |
+| baseline/fix | 11,330 | 11,598 | 19:44:16 | split 1 的 timing summary 不含前 01:11:34 中断段的 268 次 HTTP POST。 |
+| metric readable-BEV | 11,778 | 16,868 | 25:22:19 | split 3 的 timing summary 只覆盖最后 06:29:45 完成段，不含前 22:12:56 中断段的大量请求。 |
+
+因此汇报时应写：主方法更准，但不是更快；若考虑中断/续跑产生的真实尝试成本，readable-BEV 的时间和请求开销明显更高。`vlm_timing.json` 记录每次 `chat.completions.create` 的 API 响应时间，不包含本地图像准备、导航执行和 retry sleep，也不一定覆盖中断段。
 
 ## 7. 按任务类型拆分
 

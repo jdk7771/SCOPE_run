@@ -1,10 +1,9 @@
-方法,分支,split,任务数,Snapshot success (%),Distance success (%),Snapshot SPL (%),Distance SPL (%),耗时
-baseline/fix 0.05m,baseline/fix-tsdf05cm,1,278,20.50,44.24,16.29,31.66,14:02:41
-metric readable-BEV,feat/metric-frontier-readable-bev,1,278,33.09,56.83,23.18,37.43,20:09:44
-baseline/fix 0.05m,baseline/fix-tsdf05cm,2,255,19.22,38.43,13.75,26.37,13:35:03
-metric readable-BEV,feat/metric-frontier-readable-bev,2,255,21.96,41.18,15.92,29.12,20:35:10
-baseline/fix 0.05m,baseline/fix-tsdf05cm,3,277,15.16,36.82,11.38,25.33,17:24:40
-metric readable-BEV,feat/metric-frontier-readable-bev,3,277,25.27,45.49,18.78,30.60,06:29:45
-baseline/fix 0.05m,baseline/fix-tsdf05cm,合并,810,18.27,39.88,13.84,27.86,
-metric readable-BEV,feat/metric-frontier-readable-bev,合并,810,26.91,48.02,19.39,32.49,
-
+方法,分支,split,任务数,Snapshot success (%),Distance success (%),Snapshot SPL (%),Distance SPL (%),完成段耗时,log累计尝试时间,VLM成功请求,全log HTTP POST,API响应总时长,时间说明
+baseline/fix 0.05m,baseline/fix-tsdf05cm,1,278,20.50,44.24,16.29,31.66,14:02:41,15:14:15,3461,3729,06:06:04,前 01:11:34 中断段，续跑跳过 2 个 scene
+metric readable-BEV,feat/metric-frontier-readable-bev,1,278,33.09,56.83,23.18,37.43,20:09:44,20:09:44,4925,4936,10:38:56,HTTP POST 比 timing summary 多 11 次
+baseline/fix 0.05m,baseline/fix-tsdf05cm,2,255,19.22,38.43,13.75,26.37,13:35:03,13:35:03,3447,3447,05:58:36,
+metric readable-BEV,feat/metric-frontier-readable-bev,2,255,21.96,41.18,15.92,29.12,20:35:10,20:35:10,5254,5254,10:57:27,
+baseline/fix 0.05m,baseline/fix-tsdf05cm,3,277,15.16,36.82,11.38,25.33,17:24:40,17:24:40,4422,4422,07:39:36,
+metric readable-BEV,feat/metric-frontier-readable-bev,3,277,25.27,45.49,18.78,30.60,06:29:45,28:42:41,1599,6678,03:45:56,前 22:12:56 中断段，续跑跳过 27 个 scene
+baseline/fix 0.05m,baseline/fix-tsdf05cm,合并,810,18.27,39.88,13.84,27.86,45:02:24,46:13:58,11330,11598,19:44:16,三 split 合计
+metric readable-BEV,feat/metric-frontier-readable-bev,合并,810,26.91,48.02,19.39,32.49,47:14:39,69:27:35,11778,16868,25:22:19,三 split 合计
