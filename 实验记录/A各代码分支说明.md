@@ -10,10 +10,10 @@ GitHub 仓库：`https://github.com/jdk7771/SCOPE_run`
 如果只想看最重要的大实验结果，请先打开：
 
 ```text
-结果/结果说明.md
+实验记录/结果说明.md
 ```
 
-`结果/` 是重新整理后的中文入口目录。`结果/大结果/` 放主实验对比、汇总表和对应的 `json/pkl/yaml/log` 原始指标文件；`结果/小实验/` 放过程性小实验。完整归档仍保留在 `experiment_results/scope_goatbench_results_release_2026-08-05/`。
+`实验记录/` 是重新整理后的中文入口目录。`实验记录/大结果/` 放主实验对比、汇总表和对应的 `json/pkl/yaml/log` 原始指标文件；`实验记录/小实验/` 放过程性小实验。完整归档仍保留在 `experiment_results/scope_goatbench_results_release_2026-08-05/`。
 
 ## 服务器删除前保留情况
 
@@ -22,9 +22,9 @@ GitHub 仓库：`https://github.com/jdk7771/SCOPE_run`
 | 类型 | 已保留在哪里 | 说明 |
 | --- | --- | --- |
 | 关键代码 | GitHub 六个分支 | `main`、`baseline/fix-tsdf05cm`、`feat/batch-frontier-potential-scoring`、`feat/structured-bev-tsdf05cm`、`feat/metric-frontier-readable-bev`、`feat/semantic-bev-dedupe-smoothing`。 |
-| 大结果 | `结果/大结果/` | `baseline/fix-tsdf05cm` vs `feat/metric-frontier-readable-bev`，含 split 1/2/3 指标、日志、`json/pkl/yaml`。 |
-| 小实验 | `结果/小实验/` | `feat/batch-frontier-potential-scoring` 的 batch frontier scoring 小实验，含 split 1 对比和原始 compact 指标。 |
-| 通用结果说明 | `结果/JSON和PKL结果文件说明.md`、`结果/时间和VLM调用核实.md` | 说明 `json/pkl/yaml/log` 如何读取和复算，并核实运行时间、续跑累计时间和 VLM 调用数。 |
+| 大结果 | `实验记录/大结果/` | `baseline/fix-tsdf05cm` vs `feat/metric-frontier-readable-bev`，含 split 1/2/3 指标、日志、`json/pkl/yaml`。 |
+| 小实验 | `实验记录/小实验/` | `feat/batch-frontier-potential-scoring` 的 batch frontier scoring 小实验，含 split 1 对比和原始 compact 指标。 |
+| 通用结果说明 | `实验记录/JSON和PKL结果文件说明.md`、`实验记录/时间和VLM调用核实.md` | 说明 `json/pkl/yaml/log` 如何读取和复算，并核实运行时间、续跑累计时间和 VLM 调用数。 |
 | 原 compact release | `experiment_results/scope_goatbench_results_release_2026-08-05/` | 早期整理出的 compact 结果包，作为备份保留。 |
 
 没有保留远端服务器上的完整原始图片、VLM 输入图片 bundle、视频和大型中间可视化目录。如果之后还要逐帧检查图片或复现可视化，需要单独备份远端 `results/` 里的大文件；如果只做论文/汇报指标对比和代码复现，可以不保留这些大文件。
@@ -35,7 +35,7 @@ GitHub 仓库：`https://github.com/jdk7771/SCOPE_run`
 | --- | --- |
 | `docs/RESULTS_STORAGE_INDEX_CN.md` | 说明每个 `json/pkl/yaml/log` 是怎么保存的，以及每个 artifact 目录对应哪个实验。 |
 | `docs/EXPERIMENT_MAIN_BASELINE_VS_METRIC_READABLE_BEV_CN.md` | 大实验文档：`baseline/fix-tsdf05cm` vs `feat/metric-frontier-readable-bev`。 |
-| `结果/时间和VLM调用核实.md` | 单独核实运行时间、续跑累计时间、VLM 成功请求和全 log HTTP POST。 |
+| `实验记录/时间和VLM调用核实.md` | 单独核实运行时间、续跑累计时间、VLM 成功请求和全 log HTTP POST。 |
 | `metrics/metrics_summary.csv` | 所有结果的总表，适合直接打开查看。 |
 | `metrics/metrics_summary.json` | 和 CSV 相同内容的 JSON 版本。 |
 | `manifest.json` | 每个 artifact 来源路径、分支、核心代码 ref、已复制文件和 timing 汇总。 |
@@ -95,7 +95,7 @@ feat/metric-frontier-readable-bev
 | 最终完成段合计 | 45:02:24 | 47:14:39 | +2:12:15 |
 | log 累计尝试合计，含中断续跑 | 46:13:58 | 69:27:35 | +23:13:37 |
 
-这里的差异主要来自续跑：baseline/fix split 1 前面有 01:11:34 中断段；metric readable-BEV split 3 前面有 22:12:56 中断段，续跑时跳过 27 个已完成 scene。详细计算见 `结果/时间和VLM调用核实.md`。
+这里的差异主要来自续跑：baseline/fix split 1 前面有 01:11:34 中断段；metric readable-BEV split 3 前面有 22:12:56 中断段，续跑时跳过 27 个已完成 scene。详细计算见 `实验记录/时间和VLM调用核实.md`。
 
 一句话结论：`feat/metric-frontier-readable-bev` 是当前验证最充分的好代码，可以作为主实验结果。
 

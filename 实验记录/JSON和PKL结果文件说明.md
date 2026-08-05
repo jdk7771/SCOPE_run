@@ -1,6 +1,6 @@
 # JSON 和 PKL 结果文件说明
 
-这个文件说明 `结果/大结果/*/原始结果文件/` 和 `结果/小实验/*/原始结果文件/` 下面的文件各自保存了什么。
+这个文件说明 `实验记录/大结果/*/原始结果文件/` 和 `实验记录/小实验/*/原始结果文件/` 下面的文件各自保存了什么。
 
 ## 文件类型
 
@@ -58,7 +58,7 @@ success_by_distance_0.0_1.0_3.pkl  -> split 3 distance success
 import pickle
 import numpy as np
 
-path = "结果/大结果/02_可读BEV_metric-frontier-readable-bev/原始结果文件/success_by_distance_0.0_1.0_1.pkl"
+path = "实验记录/大结果/02_可读BEV_metric-frontier-readable-bev/原始结果文件/success_by_distance_0.0_1.0_1.pkl"
 
 with open(path, "rb") as f:
     data = pickle.load(f)

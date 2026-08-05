@@ -80,12 +80,12 @@ print(score)
 
 batch 小实验中，`frontier_potential_batch_step` 是更重要的 stage 指标；它记录一次 batch 处理多个 frontier 是否完整成功。
 
-注意：本次结果中 `baseline/fix` split 1 和 `metric readable-BEV` split 3 都有中断后续跑。时间和 VLM 调用数应以日志分段核实为准，中文整理目录中的 `结果/时间和VLM调用核实.md` 已单独列出完成段运行时间、log 累计尝试时间、VLM 成功请求和全 log HTTP POST。
+注意：本次结果中 `baseline/fix` split 1 和 `metric readable-BEV` split 3 都有中断后续跑。时间和 VLM 调用数应以日志分段核实为准，中文整理目录中的 `实验记录/时间和VLM调用核实.md` 已单独列出完成段运行时间、log 累计尝试时间、VLM 成功请求和全 log HTTP POST。
 
 ## 5. 推荐阅读顺序
 
-1. `各分支说明.md`：先看分支和实验总览。
-2. `结果/时间和VLM调用核实.md`：先确认运行时间和 VLM 调用口径。
+1. `实验记录/A各代码分支说明.md`：先看分支和实验总览。
+2. `实验记录/时间和VLM调用核实.md`：先确认运行时间和 VLM 调用口径。
 3. `docs/EXPERIMENT_MAIN_BASELINE_VS_METRIC_READABLE_BEV_CN.md`：看大实验，baseline/fix vs readable-BEV。
 4. `docs/EXPERIMENT_BATCH_FRONTIER_POTENTIAL_CN.md`：看小实验，batch frontier potential。
 5. `metrics/metrics_summary.csv`：查所有结果的原始汇总行。
