@@ -1,4 +1,4 @@
-# SCOPE GOAT-Bench 实验结果总览
+# SCOPE GOAT-Bench 分支说明和介绍
 
 整理日期：2026-08-05  
 GitHub 仓库：`https://github.com/jdk7771/SCOPE_run`  
@@ -148,10 +148,3 @@ experiment_results/scope_goatbench_results_release_2026-08-05
 - `vlm_timing.json`
 
 完整说明见 `docs/RESULTS_STORAGE_INDEX_CN.md`。
-
-## 8. 推荐后续动作
-
-1. 汇报/论文主结果使用 `feat/metric-frontier-readable-bev` vs `baseline/fix-tsdf05cm`。
-2. 保留 `feat/batch-frontier-potential-scoring` 小实验，但不要作为主方法。
-3. 如果要把 `feat/semantic-bev-dedupe-smoothing` 作为最终代码，需要补跑 split 2/3。
-4. 如果需要公开完整图片/VLM 输入图，单独做大文件归档；当前 compact 包只保存可复算指标和日志。
