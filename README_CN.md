@@ -21,7 +21,6 @@ GitHub 仓库：`https://github.com/jdk7771/SCOPE_run`
 | --- | --- |
 | `docs/RESULTS_STORAGE_INDEX_CN.md` | 说明每个 `json/pkl/yaml/log` 是怎么保存的，以及每个 artifact 目录对应哪个实验。 |
 | `docs/EXPERIMENT_MAIN_BASELINE_VS_METRIC_READABLE_BEV_CN.md` | 大实验文档：`baseline/fix-tsdf05cm` vs `feat/metric-frontier-readable-bev`。 |
-| `docs/EXPERIMENT_BATCH_FRONTIER_POTENTIAL_CN.md` | 小实验文档：`feat/batch-frontier-potential-scoring` vs 5 cm baseline/fix。 |
 | `metrics/metrics_summary.csv` | 所有结果的总表，适合直接打开查看。 |
 | `metrics/metrics_summary.json` | 和 CSV 相同内容的 JSON 版本。 |
 | `manifest.json` | 每个 artifact 来源路径、分支、核心代码 ref、已复制文件和 timing 汇总。 |
@@ -35,7 +34,6 @@ GitHub 仓库：`https://github.com/jdk7771/SCOPE_run`
 | `main` | `6abe091` | 原始 SCOPE 历史基线，默认 10 cm TSDF。原始结果目录已删除，只保留文字归档。 | 历史全数据集指标；split 1/2 归档指标。 | `artifacts/main_experience_deleted_archive/README.md` |
 | `baseline/fix-tsdf05cm` | `8d4a4c9` | 5 cm TSDF baseline/fix；修 stale snapshot object ID，记录 VLM timing。可理解为当前 5 cm 非 BEV 对照。 | 正式 split 1/2/3 对照；旧 split 1 pilot。 | `artifacts/baseline_metric_control_splits1_3/`、`artifacts/baseline_ceping_split1/` |
 | `feat/metric-frontier-readable-bev` | `f36b247` | 当前验证最充分的主方法：米制 frontier、共坐标 semantic/Gaussian BEV、全部 frontier 输入 VLM。 | split 1/2/3 三个完整 episode。 | `artifacts/metric_readable_bev_all_frontiers_splits1_3/` |
-| `feat/batch-frontier-potential-scoring` | `dbbab92` | 小实验：把 frontier potential scoring 从逐 frontier 请求改成 batch 请求。 | 两次 split 1 小实验。 | `artifacts/batch_frontier_reason1/`、`artifacts/batch_frontier_reason2/` |
 | `feat/semantic-bev-dedupe-smoothing` | `81bf1e2` | readable-BEV 后续清理：同类语义实例去重、BEV 显示平滑。 | 一个完整 split 1；两个 `00803` 单场景检查。 | `artifacts/dedupe_smoothing_check_00803/`、`artifacts/dedupe_check_00803/` |
 
 `feat/structured-bev-tsdf05cm` 是较早的 structured-BEV 过程分支，不是当前重点结果；本文档不把它放进主实验对比。
@@ -45,8 +43,7 @@ GitHub 仓库：`https://github.com/jdk7771/SCOPE_run`
 | 对比 | 性质 | 该看哪个文档 | 该看哪些结果文件 | 结论 |
 | --- | --- | --- | --- | --- |
 | `baseline/fix-tsdf05cm` vs `feat/metric-frontier-readable-bev` | 大实验/主实验 | `docs/EXPERIMENT_MAIN_BASELINE_VS_METRIC_READABLE_BEV_CN.md` | `artifacts/baseline_metric_control_splits1_3/`、`artifacts/metric_readable_bev_all_frontiers_splits1_3/` | readable-BEV 在 split 1/2/3 四项核心指标都高于 baseline/fix。 |
-| `feat/batch-frontier-potential-scoring` vs 5 cm baseline/fix | 小实验/效率探索 | `docs/EXPERIMENT_BATCH_FRONTIER_POTENTIAL_CN.md` | `artifacts/batch_frontier_reason1/`、`artifacts/batch_frontier_reason2/`、`artifacts/baseline_ceping_split1/`、`artifacts/baseline_metric_control_splits1_3/` | batch 修复后更稳定、请求数下降，但导航成功率没有提升，不作为主方法。 |
-| `feat/semantic-bev-dedupe-smoothing` vs `feat/metric-frontier-readable-bev` | 最终代码候选的初步检查 | 本 README 第 6 节 | `artifacts/dedupe_smoothing_check_00803/`、`artifacts/metric_readable_bev_all_frontiers_splits1_3/` | split 1 结果接近，但 dedupe/smoothing 缺 split 2/3 完整验证。 |
+| `feat/semantic-bev-dedupe-smoothing` vs `feat/metric-frontier-readable-bev` | 最终代码候选的初步检查 | 本 README 第 5 节 | `artifacts/dedupe_smoothing_check_00803/`、`artifacts/metric_readable_bev_all_frontiers_splits1_3/` | split 1 结果接近，但 dedupe/smoothing 缺 split 2/3 完整验证。 |
 | `main` vs 5 cm baseline/fix | 历史参考 | `artifacts/main_experience_deleted_archive/README.md` | `artifacts/main_experience_deleted_archive/`、`artifacts/baseline_metric_control_splits1_3/` | `main` 是 10 cm TSDF 历史结果；当前正式对照以 5 cm baseline/fix 为准。 |
 
 ## 4. 大实验结论
@@ -78,26 +75,7 @@ feat/metric-frontier-readable-bev
 
 一句话结论：`feat/metric-frontier-readable-bev` 是当前验证最充分的好代码，可以作为主实验结果。
 
-## 5. 小实验结论
-
-小实验是：
-
-```text
-feat/batch-frontier-potential-scoring
-```
-
-它只改 frontier potential scoring 的请求方式，不是主方法。
-
-| 结果 | 任务数 | Snapshot success | Distance success | Snapshot SPL | Distance SPL | VLM 成功请求 | batch stage |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| baseline_ceping split 1 | 278 | 20.50% | 40.65% | 17.13% | 29.11% | 4,059 | - |
-| baseline_metric_control split 1 | 278 | 20.50% | **44.24%** | 16.29% | **31.66%** | 4,422 | - |
-| batch reason1 | 278 | 19.78% | 40.65% | 15.34% | 28.41% | 4,841 | 161 / 1,285 成功 |
-| batch reason2 | 278 | 17.99% | 40.65% | 15.54% | 28.88% | **3,511** | 614 / 618 成功 |
-
-结论：batch-local frontier ID 修复后，batch stage 基本稳定，请求数也下降；但成功率没有提升，所以这个分支只作为小实验保留。
-
-## 6. dedupe/smoothing 的定位
+## 5. dedupe/smoothing 的定位
 
 `feat/semantic-bev-dedupe-smoothing` 可以理解为 readable-BEV 的最终代码候选，但目前系统验证不够。
 
@@ -112,7 +90,7 @@ feat/batch-frontier-potential-scoring
 - 它的 SPL 更高，但 success 略低。
 - 因为还没有 split 2/3 完整结果，不能说它已经替代 `feat/metric-frontier-readable-bev`。
 
-## 7. 结果文件结构
+## 6. 结果文件结构
 
 ```text
 experiment_results/scope_goatbench_results_release_2026-08-05
@@ -125,16 +103,13 @@ experiment_results/scope_goatbench_results_release_2026-08-05
 |-- artifacts/
 |   |-- baseline_ceping_split1/
 |   |-- baseline_metric_control_splits1_3/
-|   |-- batch_frontier_reason1/
-|   |-- batch_frontier_reason2/
 |   |-- metric_readable_bev_all_frontiers_splits1_3/
 |   |-- dedupe_check_00803/
 |   |-- dedupe_smoothing_check_00803/
 |   `-- main_experience_deleted_archive/
 `-- docs/
     |-- RESULTS_STORAGE_INDEX_CN.md
-    |-- EXPERIMENT_MAIN_BASELINE_VS_METRIC_READABLE_BEV_CN.md
-    `-- EXPERIMENT_BATCH_FRONTIER_POTENTIAL_CN.md
+    `-- EXPERIMENT_MAIN_BASELINE_VS_METRIC_READABLE_BEV_CN.md
 ```
 
 每个 `artifacts/*` 目录都保留 compact 结果：
