@@ -44,22 +44,28 @@ main
 | `feat/metric-frontier-readable-bev` | Main readable-BEV branch. It keeps 5 cm TSDF, changes frontier thresholds to metric units, makes semantic/Gaussian BEVs share the same crop and coordinates, validates semantic footprints against TSDF support, and exposes all valid frontiers to the VLM when `structured_bev_max_frontiers: 0`. | Use as the main all-frontiers structured-BEV experiment branch. Existing reports show higher success than `main`, `baseline/fix-tsdf05cm`, and the top-3 structured-BEV branch on the matched 278-task GOAT-Bench split. |
 | `feat/semantic-bev-dedupe-smoothing` | Readability follow-up to `feat/metric-frontier-readable-bev`. It deduplicates nearby same-class ConceptGraph tracks and adds display-only smoothing to TSDF-supported semantic footprints. It does not replace the planner or change the source TSDF/object mask. | Use when inspecting or rerunning the readable-BEV method with cleaner semantic instance rendering. |
 
-Observed server worktrees on 2026-08-05:
+GitHub now keeps only these six branches:
+
+```text
+main
+baseline/fix-tsdf05cm
+feat/batch-frontier-potential-scoring
+feat/structured-bev-tsdf05cm
+feat/metric-frontier-readable-bev
+feat/semantic-bev-dedupe-smoothing
+```
+
+Active server worktrees on 2026-08-05:
 
 | Path | Checked-out branch |
 | --- | --- |
 | `/mnt/data/SCOPE` | `baseline/fix-tsdf05cm` |
 | `/mnt/data/SCOPE_batch_frontier_potential` | `feat/batch-frontier-potential-scoring` |
 | `/mnt/data/SCOPE_metric_frontier_bev` | `feat/semantic-bev-dedupe-smoothing` |
-| `/mnt/data/SCOPE_run` | legacy `feat/semantic-bev-comparison` |
-| `/mnt/data/SCOPE_run_goal_bev` | legacy `feat/goat-structured-bev-vlm` |
 
-Legacy branches kept in the remote include `feat/semantic-bev-comparison`
-(early semantic/Gaussian BEV visualization comparison), `feat/semantic-bev-simple-labels`
-(simplified BEV labels), and `feat/goat-structured-bev-vlm` (older configurable
-structured-BEV prompt branch). They are useful for history, but the maintained
-experiment line is the branch map above.
-
+The older `/mnt/data/SCOPE_run` and `/mnt/data/SCOPE_run_goal_bev` worktrees are
+local archives only. Their legacy remote branches were removed on 2026-08-05 to
+keep the GitHub branch list focused on the maintained experiment line.
 
 ## Installation
 

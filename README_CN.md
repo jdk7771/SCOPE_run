@@ -40,16 +40,16 @@ main
         `-- feat/semantic-bev-dedupe-smoothing
 ```
 
-| 分支 | 结果代码 ref | 当前 GitHub ref | 定位 | 是否推荐作为主结果 |
-| --- | --- | --- | --- | --- |
-| `main` | `6abe091` | `2cd946d` | 原始 SCOPE 10 cm TSDF 历史基线。原始结果目录已删除，只保留归档数值。 | 只作历史基线 |
-| `baseline/fix-tsdf05cm` | `8d4a4c9` | `6fa225e` | 5 cm TSDF 非 BEV 对照，修 stale snapshot object ID，加入 VLM timing。 | 推荐作公平 baseline |
-| `feat/batch-frontier-potential-scoring` | `dbbab92` | `586b9ff` | frontier potential batch 化小实验。 | 保留结果，不作主方法 |
-| `feat/structured-bev-tsdf05cm` | `1623bd9` | `c2df3d2` | 初版 structured-BEV/top-3 frontier 过程分支。 | 历史机制对照 |
-| `feat/metric-frontier-readable-bev` | `f36b247` | `ea7468e` | readable-BEV 主实验：米制 frontier、共坐标 BEV、TSDF 支撑语义 footprint、全部 frontier 输入 VLM。 | **当前验证最充分的主方法** |
-| `feat/semantic-bev-dedupe-smoothing` | `81bf1e2` + README ref `efc08e5` | `efc08e5` | readable-BEV 后续清理：同类实例去重、显示平滑。 | 最终代码候选，但还缺 split 2/3 验证 |
+| 分支 | 实验结果对应核心代码 ref | 定位 | 是否推荐作为主结果 |
+| --- | --- | --- | --- |
+| `main` | `6abe091` | 原始 SCOPE 10 cm TSDF 历史基线。原始结果目录已删除，只保留归档数值。 | 只作历史基线 |
+| `baseline/fix-tsdf05cm` | `8d4a4c9` | 5 cm TSDF 非 BEV 对照，修 stale snapshot object ID，加入 VLM timing。 | 推荐作公平 baseline |
+| `feat/batch-frontier-potential-scoring` | `dbbab92` | frontier potential batch 化小实验。 | 保留结果，不作主方法 |
+| `feat/structured-bev-tsdf05cm` | `1623bd9` | 初版 structured-BEV/top-3 frontier 过程分支。 | 历史机制对照 |
+| `feat/metric-frontier-readable-bev` | `f36b247` | readable-BEV 主实验：米制 frontier、共坐标 BEV、TSDF 支撑语义 footprint、全部 frontier 输入 VLM。 | **当前验证最充分的主方法** |
+| `feat/semantic-bev-dedupe-smoothing` | `81bf1e2` | readable-BEV 后续清理：同类实例去重、显示平滑。 | 最终代码候选，但还缺 split 2/3 验证 |
 
-注：`当前 GitHub ref` 里有些只是 README/文档提交；实验结果对应的核心代码 ref 以“结果代码 ref”为准。
+注：GitHub 分支上的最新提交可能只是 README/文档更新；实验复现和结果归属以上表中的核心代码 ref 为准。
 
 ## 3. 核心对照：metric readable-BEV vs 5 cm baseline
 
@@ -221,4 +221,3 @@ batch 方式：同一步新 frontier 合成一次 VLM 请求，返回多个 F_i 
 2. 把 `feat/semantic-bev-dedupe-smoothing` 作为最终代码候选继续跑 split 2/3。
 3. `feat/batch-frontier-potential-scoring` 只作为小实验保留，指标已经归档。
 4. 若要正式采用 dedupe+smoothing，需要补齐与 metric readable-BEV 相同的 split 1/2/3 对照。
-
