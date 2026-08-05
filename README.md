@@ -17,6 +17,10 @@
 
 ---
 
+## 中文实验说明
+
+中文分支说明、GOAT-Bench 实验结果、HF release 包结构和推荐结论见 [`README_CN.md`](README_CN.md)。
+
 ## Branch Guide / 分支说明
 
 This fork keeps several experiment branches for GOAT-Bench navigation ablations.
