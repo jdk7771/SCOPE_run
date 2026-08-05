@@ -1,0 +1,508 @@
+[
+  {
+    "id": "baseline_ceping_split1",
+    "branch": "baseline/fix-tsdf05cm",
+    "code_ref": "8d4a4c9",
+    "path": "/mnt/data/SCOPE/results/baseline_ceping",
+    "note": "旧 5cm baseline pilot；非当前正式公平对照",
+    "release_artifact_path": "artifacts/baseline_ceping_split1",
+    "copied_files": [
+      "eval_goatbench.yaml",
+      "log_0.00_1.00_1.log",
+      "n_filtered_snapshots.json",
+      "n_filtered_snapshots_0.0_1.0_1.json",
+      "n_total_frames.json",
+      "n_total_frames_0.0_1.0_1.json",
+      "n_total_snapshots.json",
+      "n_total_snapshots_0.0_1.0_1.json",
+      "spl_by_distance.pkl",
+      "spl_by_distance_0.0_1.0_1.pkl",
+      "spl_by_snapshot.pkl",
+      "spl_by_snapshot_0.0_1.0_1.pkl",
+      "spl_by_task.pkl",
+      "spl_by_task_0.0_1.0_1.pkl",
+      "success_by_distance.pkl",
+      "success_by_distance_0.0_1.0_1.pkl",
+      "success_by_snapshot.pkl",
+      "success_by_snapshot_0.0_1.0_1.pkl",
+      "success_by_task.pkl",
+      "success_by_task_0.0_1.0_1.pkl",
+      "vlm_timing.json"
+    ],
+    "timing_summary": {
+      "records": 4059,
+      "successful_records": 4059,
+      "metadata": {
+        "experiment": "baseline_ceping",
+        "split": 1,
+        "start_ratio": 0.0,
+        "end_ratio": 1.0
+      },
+      "mean_success_response_seconds": 6.318,
+      "by_call_type": {
+        "decision": {
+          "count": 1466,
+          "mean_success_response_seconds": 11.464
+        },
+        "frontier_potential": {
+          "count": 1051,
+          "mean_success_response_seconds": 4.651
+        },
+        "prefilter": {
+          "count": 776,
+          "mean_success_response_seconds": 1.688
+        },
+        "self_refine": {
+          "count": 766,
+          "mean_success_response_seconds": 3.449
+        }
+      }
+    }
+  },
+  {
+    "id": "baseline_metric_control_splits1_3",
+    "branch": "baseline/fix-tsdf05cm",
+    "code_ref": "8d4a4c9",
+    "path": "/mnt/data/SCOPE/results/baseline_of_metric-frontier-readable-bev",
+    "note": "当前 readable-BEV 的 5cm 非 BEV 正式对照，split 1/2/3",
+    "release_artifact_path": "artifacts/baseline_metric_control_splits1_3",
+    "copied_files": [
+      "eval_goatbench.yaml",
+      "log_0.00_1.00_1.log",
+      "log_0.00_1.00_2.log",
+      "log_0.00_1.00_3.log",
+      "n_filtered_snapshots.json",
+      "n_filtered_snapshots_0.0_1.0_1.json",
+      "n_filtered_snapshots_0.0_1.0_2.json",
+      "n_filtered_snapshots_0.0_1.0_3.json",
+      "n_total_frames.json",
+      "n_total_frames_0.0_1.0_1.json",
+      "n_total_frames_0.0_1.0_2.json",
+      "n_total_frames_0.0_1.0_3.json",
+      "n_total_snapshots.json",
+      "n_total_snapshots_0.0_1.0_1.json",
+      "n_total_snapshots_0.0_1.0_2.json",
+      "n_total_snapshots_0.0_1.0_3.json",
+      "spl_by_distance.pkl",
+      "spl_by_distance_0.0_1.0_1.pkl",
+      "spl_by_distance_0.0_1.0_2.pkl",
+      "spl_by_distance_0.0_1.0_3.pkl",
+      "spl_by_snapshot.pkl",
+      "spl_by_snapshot_0.0_1.0_1.pkl",
+      "spl_by_snapshot_0.0_1.0_2.pkl",
+      "spl_by_snapshot_0.0_1.0_3.pkl",
+      "spl_by_task.pkl",
+      "spl_by_task_0.0_1.0_1.pkl",
+      "spl_by_task_0.0_1.0_2.pkl",
+      "spl_by_task_0.0_1.0_3.pkl",
+      "success_by_distance.pkl",
+      "success_by_distance_0.0_1.0_1.pkl",
+      "success_by_distance_0.0_1.0_2.pkl",
+      "success_by_distance_0.0_1.0_3.pkl",
+      "success_by_snapshot.pkl",
+      "success_by_snapshot_0.0_1.0_1.pkl",
+      "success_by_snapshot_0.0_1.0_2.pkl",
+      "success_by_snapshot_0.0_1.0_3.pkl",
+      "success_by_task.pkl",
+      "success_by_task_0.0_1.0_1.pkl",
+      "success_by_task_0.0_1.0_2.pkl",
+      "success_by_task_0.0_1.0_3.pkl",
+      "vlm_timing.json"
+    ],
+    "timing_summary": {
+      "records": 4422,
+      "successful_records": 4422,
+      "metadata": {
+        "experiment": "baseline_of_metric-frontier-readable-bev",
+        "split": 3,
+        "start_ratio": 0.0,
+        "end_ratio": 1.0
+      },
+      "mean_success_response_seconds": 6.236,
+      "by_call_type": {
+        "decision": {
+          "count": 1653,
+          "mean_success_response_seconds": 11.111
+        },
+        "frontier_potential": {
+          "count": 1048,
+          "mean_success_response_seconds": 4.667
+        },
+        "prefilter": {
+          "count": 882,
+          "mean_success_response_seconds": 1.788
+        },
+        "self_refine": {
+          "count": 839,
+          "mean_success_response_seconds": 3.265
+        }
+      }
+    }
+  },
+  {
+    "id": "batch_frontier_reason1",
+    "branch": "feat/batch-frontier-potential-scoring",
+    "code_ref": "dbbab92",
+    "path": "/mnt/data/SCOPE_batch_frontier_potential/results/baseline_all—new-frontier_reason",
+    "note": "batch frontier potential 小实验第 1 次",
+    "release_artifact_path": "artifacts/batch_frontier_reason1",
+    "copied_files": [
+      "eval_goatbench.yaml",
+      "log_0.00_1.00_1.log",
+      "n_filtered_snapshots.json",
+      "n_filtered_snapshots_0.0_1.0_1.json",
+      "n_total_frames.json",
+      "n_total_frames_0.0_1.0_1.json",
+      "n_total_snapshots.json",
+      "n_total_snapshots_0.0_1.0_1.json",
+      "spl_by_distance.pkl",
+      "spl_by_distance_0.0_1.0_1.pkl",
+      "spl_by_snapshot.pkl",
+      "spl_by_snapshot_0.0_1.0_1.pkl",
+      "spl_by_task.pkl",
+      "spl_by_task_0.0_1.0_1.pkl",
+      "success_by_distance.pkl",
+      "success_by_distance_0.0_1.0_1.pkl",
+      "success_by_snapshot.pkl",
+      "success_by_snapshot_0.0_1.0_1.pkl",
+      "success_by_task.pkl",
+      "success_by_task_0.0_1.0_1.pkl",
+      "vlm_timing.json"
+    ],
+    "timing_summary": {
+      "records": 4841,
+      "successful_records": 4841,
+      "metadata": {
+        "experiment": "baseline_all—new-frontier_reason",
+        "split": 1,
+        "start_ratio": 0.0,
+        "end_ratio": 1.0
+      },
+      "mean_success_response_seconds": 6.077,
+      "by_call_type": {
+        "decision": {
+          "count": 1745,
+          "mean_success_response_seconds": 10.149
+        },
+        "frontier_potential_batch": {
+          "count": 1285,
+          "mean_success_response_seconds": 5.864
+        },
+        "prefilter": {
+          "count": 1012,
+          "mean_success_response_seconds": 1.5
+        },
+        "self_refine": {
+          "count": 799,
+          "mean_success_response_seconds": 3.325
+        }
+      },
+      "stage_summary": {
+        "frontier_potential_batch_step": {
+          "stages": 1285,
+          "successful_stages": 161,
+          "failed_stages": 1124,
+          "total_items": 2098,
+          "mean_success_elapsed_seconds": 9.13512367080745,
+          "min_success_elapsed_seconds": 3.906399,
+          "max_success_elapsed_seconds": 62.570634
+        }
+      }
+    }
+  },
+  {
+    "id": "batch_frontier_reason2",
+    "branch": "feat/batch-frontier-potential-scoring",
+    "code_ref": "dbbab92",
+    "path": "/mnt/data/SCOPE_batch_frontier_potential/results/baseline_all—new-frontier_reason2",
+    "note": "batch frontier potential 小实验第 2 次；batch-local frontier ID 修复后更稳定",
+    "release_artifact_path": "artifacts/batch_frontier_reason2",
+    "copied_files": [
+      "eval_goatbench.yaml",
+      "log_0.00_1.00_1.log",
+      "n_filtered_snapshots.json",
+      "n_filtered_snapshots_0.0_1.0_1.json",
+      "n_total_frames.json",
+      "n_total_frames_0.0_1.0_1.json",
+      "n_total_snapshots.json",
+      "n_total_snapshots_0.0_1.0_1.json",
+      "spl_by_distance.pkl",
+      "spl_by_distance_0.0_1.0_1.pkl",
+      "spl_by_snapshot.pkl",
+      "spl_by_snapshot_0.0_1.0_1.pkl",
+      "spl_by_task.pkl",
+      "spl_by_task_0.0_1.0_1.pkl",
+      "success_by_distance.pkl",
+      "success_by_distance_0.0_1.0_1.pkl",
+      "success_by_snapshot.pkl",
+      "success_by_snapshot_0.0_1.0_1.pkl",
+      "success_by_task.pkl",
+      "success_by_task_0.0_1.0_1.pkl",
+      "vlm_timing.json"
+    ],
+    "timing_summary": {
+      "records": 3511,
+      "successful_records": 3511,
+      "metadata": {
+        "experiment": "baseline_all—new-frontier_reason2",
+        "split": 1,
+        "start_ratio": 0.0,
+        "end_ratio": 1.0
+      },
+      "mean_success_response_seconds": 6.56,
+      "by_call_type": {
+        "decision": {
+          "count": 1407,
+          "mean_success_response_seconds": 10.906
+        },
+        "frontier_potential_batch": {
+          "count": 618,
+          "mean_success_response_seconds": 6.468
+        },
+        "prefilter": {
+          "count": 761,
+          "mean_success_response_seconds": 1.638
+        },
+        "self_refine": {
+          "count": 725,
+          "mean_success_response_seconds": 3.374
+        }
+      },
+      "stage_summary": {
+        "frontier_potential_batch_step": {
+          "stages": 618,
+          "successful_stages": 614,
+          "failed_stages": 4,
+          "total_items": 983,
+          "mean_success_elapsed_seconds": 6.682570496742671,
+          "min_success_elapsed_seconds": 3.251485,
+          "max_success_elapsed_seconds": 46.679894
+        }
+      }
+    }
+  },
+  {
+    "id": "metric_readable_bev_all_frontiers_splits1_3",
+    "branch": "feat/metric-frontier-readable-bev",
+    "code_ref": "f36b247",
+    "path": "/mnt/data/SCOPE_metric_frontier_bev/results/metric-frontier-readable-bev-all-frontiers",
+    "note": "readable-BEV 主实验，all frontiers，split 1/2/3",
+    "release_artifact_path": "artifacts/metric_readable_bev_all_frontiers_splits1_3",
+    "copied_files": [
+      "eval_goatbench.yaml",
+      "log_0.00_1.00_1.log",
+      "log_0.00_1.00_2.log",
+      "log_0.00_1.00_3.log",
+      "n_filtered_snapshots.json",
+      "n_filtered_snapshots_0.0_1.0_1.json",
+      "n_filtered_snapshots_0.0_1.0_2.json",
+      "n_filtered_snapshots_0.0_1.0_3.json",
+      "n_total_frames.json",
+      "n_total_frames_0.0_1.0_1.json",
+      "n_total_frames_0.0_1.0_2.json",
+      "n_total_frames_0.0_1.0_3.json",
+      "n_total_snapshots.json",
+      "n_total_snapshots_0.0_1.0_1.json",
+      "n_total_snapshots_0.0_1.0_2.json",
+      "n_total_snapshots_0.0_1.0_3.json",
+      "spl_by_distance.pkl",
+      "spl_by_distance_0.0_1.0_1.pkl",
+      "spl_by_distance_0.0_1.0_2.pkl",
+      "spl_by_distance_0.0_1.0_3.pkl",
+      "spl_by_snapshot.pkl",
+      "spl_by_snapshot_0.0_1.0_1.pkl",
+      "spl_by_snapshot_0.0_1.0_2.pkl",
+      "spl_by_snapshot_0.0_1.0_3.pkl",
+      "spl_by_task.pkl",
+      "spl_by_task_0.0_1.0_1.pkl",
+      "spl_by_task_0.0_1.0_2.pkl",
+      "spl_by_task_0.0_1.0_3.pkl",
+      "success_by_distance.pkl",
+      "success_by_distance_0.0_1.0_1.pkl",
+      "success_by_distance_0.0_1.0_2.pkl",
+      "success_by_distance_0.0_1.0_3.pkl",
+      "success_by_snapshot.pkl",
+      "success_by_snapshot_0.0_1.0_1.pkl",
+      "success_by_snapshot_0.0_1.0_2.pkl",
+      "success_by_snapshot_0.0_1.0_3.pkl",
+      "success_by_task.pkl",
+      "success_by_task_0.0_1.0_1.pkl",
+      "success_by_task_0.0_1.0_2.pkl",
+      "success_by_task_0.0_1.0_3.pkl",
+      "vlm_timing.json"
+    ],
+    "timing_summary": {
+      "records": 1599,
+      "successful_records": 1599,
+      "metadata": {
+        "experiment": "metric-frontier-readable-bev-all-frontiers",
+        "split": 3,
+        "start_ratio": 0.0,
+        "end_ratio": 1.0,
+        "scene_name": ""
+      },
+      "mean_success_response_seconds": 8.478,
+      "by_call_type": {
+        "decision": {
+          "count": 657,
+          "mean_success_response_seconds": 14.728
+        },
+        "frontier_potential": {
+          "count": 319,
+          "mean_success_response_seconds": 5.649
+        },
+        "prefilter": {
+          "count": 340,
+          "mean_success_response_seconds": 2.114
+        },
+        "self_refine": {
+          "count": 283,
+          "mean_success_response_seconds": 4.803
+        }
+      }
+    }
+  },
+  {
+    "id": "dedupe_check_00803",
+    "branch": "feat/semantic-bev-dedupe-smoothing",
+    "code_ref": "81bf1e2/efc08e5",
+    "path": "/mnt/data/SCOPE_metric_frontier_bev/results/metric-frontier-readable-bev-dedupe-check-00803",
+    "note": "单场景 00803 dedupe 检查",
+    "release_artifact_path": "artifacts/dedupe_check_00803",
+    "copied_files": [
+      "eval_goatbench_dedupe_check_00803.yaml",
+      "log_0.00_1.00_2.log",
+      "n_filtered_snapshots.json",
+      "n_filtered_snapshots_0.0_1.0_2.json",
+      "n_total_frames.json",
+      "n_total_frames_0.0_1.0_2.json",
+      "n_total_snapshots.json",
+      "n_total_snapshots_0.0_1.0_2.json",
+      "spl_by_distance.pkl",
+      "spl_by_distance_0.0_1.0_2.pkl",
+      "spl_by_snapshot.pkl",
+      "spl_by_snapshot_0.0_1.0_2.pkl",
+      "spl_by_task.pkl",
+      "spl_by_task_0.0_1.0_2.pkl",
+      "success_by_distance.pkl",
+      "success_by_distance_0.0_1.0_2.pkl",
+      "success_by_snapshot.pkl",
+      "success_by_snapshot_0.0_1.0_2.pkl",
+      "success_by_task.pkl",
+      "success_by_task_0.0_1.0_2.pkl",
+      "vlm_timing.json"
+    ],
+    "timing_summary": {
+      "records": 47,
+      "successful_records": 47,
+      "metadata": {
+        "experiment": "metric-frontier-readable-bev-dedupe-check-00803",
+        "split": 2,
+        "start_ratio": 0.0,
+        "end_ratio": 1.0,
+        "scene_name": "k1cupFYWXJ6"
+      },
+      "mean_success_response_seconds": 7.161,
+      "by_call_type": {
+        "decision": {
+          "count": 15,
+          "mean_success_response_seconds": 11.744
+        },
+        "frontier_potential": {
+          "count": 13,
+          "mean_success_response_seconds": 8.02
+        },
+        "prefilter": {
+          "count": 7,
+          "mean_success_response_seconds": 1.801
+        },
+        "self_refine": {
+          "count": 12,
+          "mean_success_response_seconds": 3.627
+        }
+      }
+    }
+  },
+  {
+    "id": "dedupe_smoothing_check_00803",
+    "branch": "feat/semantic-bev-dedupe-smoothing",
+    "code_ref": "81bf1e2/efc08e5",
+    "path": "/mnt/data/SCOPE_metric_frontier_bev/results/metric-frontier-readable-bev-dedupe-smoothing-check-00803",
+    "note": "dedupe+smoothing；包含 split1 278 task 与 00803 单场景检查",
+    "release_artifact_path": "artifacts/dedupe_smoothing_check_00803",
+    "copied_files": [
+      "eval_goatbench_dedupe_smoothing_fullsave_00803.yaml",
+      "log_0.00_1.00_1.log",
+      "log_0.00_1.00_2.log",
+      "n_filtered_snapshots.json",
+      "n_filtered_snapshots_0.0_1.0_1.json",
+      "n_filtered_snapshots_0.0_1.0_2.json",
+      "n_total_frames.json",
+      "n_total_frames_0.0_1.0_1.json",
+      "n_total_frames_0.0_1.0_2.json",
+      "n_total_snapshots.json",
+      "n_total_snapshots_0.0_1.0_1.json",
+      "n_total_snapshots_0.0_1.0_2.json",
+      "spl_by_distance.pkl",
+      "spl_by_distance_0.0_1.0_1.pkl",
+      "spl_by_distance_0.0_1.0_2.pkl",
+      "spl_by_snapshot.pkl",
+      "spl_by_snapshot_0.0_1.0_1.pkl",
+      "spl_by_snapshot_0.0_1.0_2.pkl",
+      "spl_by_task.pkl",
+      "spl_by_task_0.0_1.0_1.pkl",
+      "spl_by_task_0.0_1.0_2.pkl",
+      "success_by_distance.pkl",
+      "success_by_distance_0.0_1.0_1.pkl",
+      "success_by_distance_0.0_1.0_2.pkl",
+      "success_by_snapshot.pkl",
+      "success_by_snapshot_0.0_1.0_1.pkl",
+      "success_by_snapshot_0.0_1.0_2.pkl",
+      "success_by_task.pkl",
+      "success_by_task_0.0_1.0_1.pkl",
+      "success_by_task_0.0_1.0_2.pkl",
+      "vlm_timing.json"
+    ],
+    "timing_summary": {
+      "records": 5328,
+      "successful_records": 5328,
+      "metadata": {
+        "experiment": "metric-frontier-readable-bev-dedupe-smoothing-check-00803",
+        "split": 1,
+        "start_ratio": 0.0,
+        "end_ratio": 1.0,
+        "scene_name": ""
+      },
+      "mean_success_response_seconds": 7.463,
+      "by_call_type": {
+        "decision": {
+          "count": 2093,
+          "mean_success_response_seconds": 13.801
+        },
+        "frontier_potential": {
+          "count": 1148,
+          "mean_success_response_seconds": 4.825
+        },
+        "prefilter": {
+          "count": 1147,
+          "mean_success_response_seconds": 1.745
+        },
+        "self_refine": {
+          "count": 940,
+          "mean_success_response_seconds": 3.551
+        }
+      }
+    }
+  },
+  {
+    "id": "main_experience_deleted_archive",
+    "branch": "main",
+    "code_ref": "6abe091",
+    "path": "/mnt/data/SCOPE/results/main_experience_deleted_archive",
+    "note": "原始 main 结果删除后的文字归档；无原始 pkl/images",
+    "release_artifact_path": "artifacts/main_experience_deleted_archive",
+    "copied_files": [
+      "README.md"
+    ]
+  }
+]

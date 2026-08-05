@@ -1,0 +1,798 @@
+00:00:00 - ***** Running metric-frontier-readable-bev-dedupe-smoothing-check-00803 *****
+00:00:00 - VLM request timing will be written to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/vlm_timing.json
+00:00:00 - Total number of episodes: 10; Selected episodes: 1
+00:00:00 - Total number of scenes: 1
+00:00:00 - Load YOLO model yolov8x-world.pt successful!
+00:00:03 - Load SAM model sam_l.pt successful!
+00:00:03 - Loaded ViT-B-32 model config.
+00:00:11 - Loading pretrained ViT-B-32 weights (laion2b_s34b_b79k).
+00:00:12 - Load CLIP model successful!
+00:00:13 - Episode 1/1
+00:00:13 - Loading scene 00803-k1cupFYWXJ6
+00:00:20 - Loaded 192 classes from scannet 200: data/scannet200_classes.txt!!!
+00:00:20 - Load scene 00803-k1cupFYWXJ6 successfully
+00:00:30 - TSDF bounds shape: (3, 2), bounds: [[    -8.4934      8.6066]
+ [    -10.838      13.462]
+ [    -15.123     -11.423]]
+00:00:30 - Initialized PotentialGraph with 450 nodes (18x25 grid)
+00:00:30 - 
+
+Scene 00803-k1cupFYWXJ6 initialization successful!
+00:00:30 - 
+Scene 00803-k1cupFYWXJ6 Episode 1 Subtask 1/6
+00:00:30 - 
+== step: 0, global step: 0 ==
+00:00:32 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.10 seconds
+00:00:32 - Target object 59 detected with IoU 0.916245487364621 in 0-view_0.png!!!
+00:00:41 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.02 seconds
+00:00:41 - Target object 59 detected with IoU 0.8902482907520691 in 0-view_1.png!!!
+00:00:48 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.01 seconds
+00:00:48 - Target object 59 detected with IoU 0.8979715181505685 in 0-view_2.png!!!
+00:00:56 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.06 seconds
+00:01:04 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.06 seconds
+00:01:11 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.05 seconds
+00:01:19 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.06 seconds
+00:01:26 - Goal object mapping: {59: [3, 3, 3]}
+00:01:26 - Step 0, update snapshots, 6 objects, 3 snapshots
+00:02:11 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:02:12 - Frontier 0 potential estimation: **SEMANTIC_RICHNESS:** High
+**EXPLORABILITY:** Medium
+**GOAL_RELEVANCE:** Medium
+**POTENTIAL_SCORE:** 3.5
+**EXPLANATION:** The image depicts a hallway with stairs, chairs and what appears to be a statue - elements mentioned in the goal description. While there's potential for finding the cactus near these objects, it is not immediately visible, suggesting further exploration would be needed. This frontier offers several navigable paths but doesn't guarantee immediate access to the target.
+00:02:12 - Frontier 0 final potential score: 2.54
+00:02:42 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:02:42 - Frontier 1 potential estimation: **SEMANTIC_RICHNESS:** High
+**EXPLORABILITY:** Medium
+**GOAL_RELEVANCE:** Medium
+**POTENTIAL_SCORE:** 3.5
+**EXPLANATION:** The image displays a richly decorated room with multiple armchairs and what appears to be a plant in the center, potentially fulfilling parts of the goal description. While the area seems somewhat contained, there's a possible opening visible through the arched window suggesting further exploration. This frontier could contain the target object or provide clues to its location nearby.
+00:02:42 - Frontier 1 final potential score: 2.41
+00:02:47 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:02:47 - Frontier 2 potential estimation: **SEMANTIC_RICHNESS:** Medium
+**EXPLORABILITY:** High
+**GOAL_RELEVANCE:** Low
+**POTENTIAL_SCORE:** 2.5
+**EXPLANATION:** The image shows a hallway with doorways and stairs, suggesting multiple paths to explore. While semantically present with architectural features, it doesn't immediately reveal the target 'cactus near armchair, statue, and stairs'. Exploring this frontier could *eventually* lead to those objects but isn’t directly relevant from this viewpoint.
+00:02:47 - Frontier 2 final potential score: 1.56
+00:02:50 - Querying VLM with 3 snapshots and 3 SCOPE-ranked frontier candidates
+00:02:50 - Querying VLM with 3 snapshots and 3 frontiers
+00:02:52 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:02:52 - Prefiltering selected classes: ['potted plant', 'stairs', 'sofa chair']
+00:02:52 - Prefiltering snapshot: 3 -> 3
+00:02:52 - Input data: 3 snapshots, 3 frontiers
+00:02:52 - Potential scores: [2.43952794863742, 2.317294211933374, 1.5636581227398239]
+00:02:52 - Input prompt length: 284 chars
+00:02:53 - Saved full VLM input bundle to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/vlm_full_inputs/1784880246734_00803-k1cupFYWXJ6_1_0
+00:02:53 - VLM API call attempt 1, retries remaining: 4
+00:03:04 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:03:04 - Raw VLM response: ```json
+{"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 0, "object_index": 1, "subtask_status": "completed", "reason": "Snapshot 0 contains a potted plant near...
+00:03:04 - Performing self-refinement validation for description task
+00:03:04 - Performing self-refinement validation for description task...
+00:03:08 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:03:08 - Self-refine: REJECTED choice for description task
+00:03:08 - Self-refine rejected choice (count: 1), retrying...
+00:03:08 - VLM API call attempt 2, retries remaining: 3
+00:03:20 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:03:20 - Raw VLM response: {"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":0,"object_index":1,"subtask_status":"completed","reason":"Snapshot 0 contains a potted plant near the stairs and arm...
+00:03:20 - Performing self-refinement validation for description task
+00:03:20 - Performing self-refinement validation for description task...
+00:03:23 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:03:23 - Self-refine: REJECTED choice for description task
+00:03:23 - Self-refine rejected choice (count: 2), retrying...
+00:03:23 - VLM API call attempt 3, retries remaining: 2
+00:03:35 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:03:35 - Raw VLM response: {"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":0,"object_index":1,"subtask_status":"not_completed","reason":"Snapshot 0 contains objects near stairs and an armchai...
+00:03:35 - Performing self-refinement validation for description task
+00:03:35 - Performing self-refinement validation for description task...
+00:03:38 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:03:38 - Self-refine: REJECTED choice for description task
+00:03:38 - Self-refine rejected choice (count: 3), retrying...
+00:03:38 - VLM API call attempt 4, retries remaining: 1
+00:03:43 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:03:43 - Raw VLM response: ```json
+{"selected_candidate":"F1","decision_type":"explore_frontier","subtask_status":"not_completed","reason":"The question specifically asks for a 'cactus' which isn't clearly visible in any of the...
+00:03:43 - Accepting frontier choice (no self-refine needed)
+00:03:43 - Final response after 4 iterations: frontier 0
+00:03:43 - Response: [frontier 0]
+Reason: [The question specifically asks for a 'cactus' which isn't clearly visible in any of the provided snapshots. While there are potted plants, determining if one is a cactus requires closer inspection. Frontier F1 shows stairs and appears to be near an area where the described objects (armchair, statue, stairs) might be located, making it the most promising direction for finding the target object.]
+00:03:43 - Prediction: frontier, 0
+00:03:43 - Next choice: Frontier at [164 236]
+00:03:43 - Structured VLM decision: {"selected_candidate": "F1", "decision_type": "explore_frontier", "subtask_status": "not_completed", "reason": "The question specifically asks for a 'cactus' which isn't clearly visible in any of the provided snapshots. While there are potted plants, determining if one is a cactus requires closer inspection. Frontier F1 shows stairs and appears to be near an area where the described objects (armchair, statue, stairs) might be located, making it the most promising direction for finding the target object.", "confidence": "medium"}
+00:03:43 - Current position: [   -0.14342     -14.923    -0.26239], 1.011
+00:03:44 - Saved semantic BEV: results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/visualization/bev_semantic/0_00803-k1cupFYWXJ6_1_0_bev.png
+00:03:47 - Potential graph stats: {'total_nodes': 450, 'avg_potential': 0.15646942607924202, 'max_potential': 3.0177950313810147, 'avg_exploration_value': 0.1441487502610397, 'max_exploration_value': 2.430309594352165, 'total_visits': 7, 'nodes_visited': 7, 'coverage_ratio': 0.015555555555555555, 'current_step': 3}
+00:03:47 - 
+== step: 1, global step: 1 ==
+00:03:49 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.13 seconds
+00:03:56 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:04:05 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.06 seconds
+00:04:13 - Goal object mapping: {59: [3, 3, 3]}
+00:04:13 - Step 1, update snapshots, 11 objects, 6 snapshots
+00:04:20 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:04:20 - Frontier 1 potential estimation: **SEMANTIC_RICHNESS:** Medium
+**EXPLORABILITY:** High
+**GOAL_RELEVANCE:** Medium
+**POTENTIAL_SCORE:** 3.5
+**EXPLANATION:** The image shows armchairs, stairs and a doorway suggesting further explorable areas. While it doesn't immediately show the target 'cactus', the presence of furniture near stairs increases the chance of finding the requested decorative plant in connected rooms; thus making this frontier potentially relevant to the goal.
+00:04:20 - Frontier 1 final potential score: 3.12
+00:04:25 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:04:25 - Frontier 2 potential estimation: **SEMANTIC_RICHNESS:** High
+**EXPLORABILITY:** Medium
+**GOAL_RELEVANCE:** Medium
+**POTENTIAL_SCORE:** 3.5
+**EXPLANATION:** The image depicts a richly decorated room with armchairs and what appears to be a small table or statue in the center, potentially satisfying parts of the goal description. While the area is explorable, it doesn’t immediately reveal stairs; however, there's an arched doorway at the back which could lead to a staircase and therefore increase relevance. The presence of furniture makes this frontier worth investigating for finding the target cactus plant.
+00:04:26 - Frontier 2 final potential score: 2.61
+00:04:27 - Querying VLM with 6 snapshots and 3 SCOPE-ranked frontier candidates
+00:04:27 - Querying VLM with 6 snapshots and 3 frontiers
+00:04:29 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:04:29 - Prefiltering selected classes: ['potted plant', 'stairs', 'sofa chair']
+00:04:29 - Prefiltering snapshot: 6 -> 5
+00:04:29 - Input data: 5 snapshots, 3 frontiers
+00:04:29 - Potential scores: [3.016793414707227, 2.606398435346863, 1.5636581227398239]
+00:04:29 - Input prompt length: 284 chars
+00:04:30 - Saved full VLM input bundle to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/vlm_full_inputs/1784880343432_00803-k1cupFYWXJ6_1_0
+00:04:30 - VLM API call attempt 1, retries remaining: 4
+00:04:43 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:04:43 - Raw VLM response: ```json
+{"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 1, "object_index": 0, "subtask_status": "completed", "reason": "Snapshot 1 contains a potted plant near...
+00:04:43 - Performing self-refinement validation for description task
+00:04:43 - Performing self-refinement validation for description task...
+00:04:47 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:04:47 - Self-refine: REJECTED choice for description task
+00:04:47 - Self-refine rejected choice (count: 1), retrying...
+00:04:47 - VLM API call attempt 2, retries remaining: 3
+00:05:01 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:05:01 - Raw VLM response: ```json
+{"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":1,"object_index":0,"subtask_status":"completed","reason":"Snapshot 1 contains a potted plant near the stairs...
+00:05:01 - Performing self-refinement validation for description task
+00:05:01 - Performing self-refinement validation for description task...
+00:05:05 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:05:05 - Self-refine: REJECTED choice for description task
+00:05:05 - Self-refine rejected choice (count: 2), retrying...
+00:05:05 - VLM API call attempt 3, retries remaining: 2
+00:05:18 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:05:18 - Raw VLM response: ```json
+{"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":1,"object_index":0,"subtask_status":"completed","reason":"Snapshot 1 contains a potted plant near the armcha...
+00:05:18 - Performing self-refinement validation for description task
+00:05:18 - Performing self-refinement validation for description task...
+00:05:22 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:05:22 - Self-refine: REJECTED choice for description task
+00:05:22 - Self-refine rejected choice (count: 3), retrying...
+00:05:22 - VLM API call attempt 4, retries remaining: 1
+00:05:27 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:05:27 - Raw VLM response: ```json
+{"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":1,"object_index":0,"subtask_status":"completed","reason":"Snapshot 1 contains a potted plant located near th...
+00:05:27 - Choice ('snapshot', '1', '0') has been rejected 3 times, accepting to break cycle
+00:05:27 - Final response after 4 iterations: snapshot 1, object 0
+00:05:27 - Response: [snapshot 1, object 0]
+Reason: [Snapshot 1 contains a potted plant located near the armchair and stairs, which matches the description. The object is clearly visible in this snapshot.]
+00:05:27 - Prediction: snapshot, 1
+00:05:27 - The index of target snapshot 1
+00:05:27 - Next choice: Snapshot of 1-view_1.png
+00:05:27 - Next choice Object: 17, potted plant
+00:05:27 - Structured VLM decision: {"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 1, "object_index": 0, "subtask_status": "completed", "reason": "Snapshot 1 contains a potted plant located near the armchair and stairs, which matches the description. The object is clearly visible in this snapshot.", "confidence": "high"}
+00:05:27 - Current position: [   -0.49342     -14.923     -1.2124], 2.024
+00:05:28 - Saved semantic BEV: results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/visualization/bev_semantic/1_00803-k1cupFYWXJ6_1_0_bev.png
+00:05:31 - Potential graph stats: {'total_nodes': 450, 'avg_potential': 0.19524971807826463, 'max_potential': 3.016793414707227, 'avg_exploration_value': 0.1772850953152128, 'max_exploration_value': 2.9803329831316505, 'total_visits': 14, 'nodes_visited': 10, 'coverage_ratio': 0.022222222222222223, 'current_step': 5}
+00:05:31 - 
+== step: 2, global step: 2 ==
+00:05:32 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.03 seconds
+00:05:39 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.08 seconds
+00:05:45 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.08 seconds
+00:05:51 - Goal object mapping: {59: [3, 3, 3]}
+00:05:51 - Step 2, update snapshots, 13 objects, 5 snapshots
+00:05:59 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:05:59 - Frontier 1 potential estimation: **SEMANTIC_RICHNESS:** High
+**EXPLORABILITY:** Medium
+**GOAL_RELEVANCE:** Medium
+**POTENTIAL_SCORE:** 3.5
+**EXPLANATION:** The image contains several objects like armchairs, artwork, and a possible view towards stairs in the distance, making it semantically rich. It offers some explorability through the doorway but is limited by being a corridor; however, these objects are relevant to the goal description which mentions an armchair and stairs. Therefore, exploring this frontier could reveal the target plant or provide information about its location.
+00:05:59 - Frontier 1 final potential score: 2.68
+00:06:04 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:06:04 - Frontier 2 potential estimation: **SEMANTIC_RICHNESS:** High
+**EXPLORABILITY:** Medium
+**GOAL_RELEVANCE:** Medium
+**POTENTIAL_SCORE:** 3.5
+**EXPLANATION:** The image displays a richly decorated room with furniture like an armchair, suggesting potential for finding the target object. While it doesn't definitively show a cactus or stairs, it opens into another area that might contain these elements and fulfill the goal description. Therefore, exploring this frontier could be beneficial but isn’t guaranteed to immediately reveal the desired plant.
+00:06:04 - Frontier 2 final potential score: 2.95
+00:06:05 - Current position: [   -0.54342     -14.923     -1.2624], 2.094
+00:06:05 - Saved semantic BEV: results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/visualization/bev_semantic/2_00803-k1cupFYWXJ6_1_0_bev.png
+00:06:08 - Potential graph stats: {'total_nodes': 450, 'avg_potential': 0.22758416537500745, 'max_potential': 2.948708876652785, 'avg_exploration_value': 0.2008449452692217, 'max_exploration_value': 2.851747404724118, 'total_visits': 21, 'nodes_visited': 10, 'coverage_ratio': 0.022222222222222223, 'current_step': 7}
+00:06:09 - Saved potential graph state to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/potential_graph/potential_state_00803-k1cupFYWXJ6_1_0.pkl
+00:06:09 - Fail: [3] not in chosen snapshot!
+00:06:09 - Fail: agent failed to reach the target viewpoint at distance 2.047226667404175!
+00:06:09 - Subtask 00803-k1cupFYWXJ6_1_0 finished, 2.094320935492318 length
+00:06:09 - Subtask spl by snapshot: 0.0, spl by distance: 0.0
+00:06:09 - Success rate by snapshot: 0.00
+00:06:09 - Success rate by distance: 0.00
+00:06:09 - SPL by snapshot: 0.00
+00:06:09 - SPL by distance: 0.00
+00:06:09 - Success rate for description: 0.00
+00:06:09 - SPL for description: 0.00
+00:06:09 - Filtered snapshots/Total snapshots/Total frames: 5/5/13
+00:06:09 - Scene graph of question 00803-k1cupFYWXJ6_1_0:
+00:06:09 - Question: Can you find the decorative plant that matches this specific description: 'decorative plant cactus located near the armchair, statue, and stairs.'? Look for an object that fits both the category and the detailed characteristics mentioned in the description.
+00:06:09 - Task type: description
+00:06:09 - Answer: decorative plant
+00:06:09 - 2-view_1.png:
+00:06:09 - 	1: chair 5
+00:06:09 - 	17: potted plant 2
+00:06:09 - 	20: end table 3
+00:06:09 - 	24: chair 2
+00:06:09 - 	26: potted plant 1
+00:06:09 - 0-view_0.png:
+00:06:09 - 	2: stairs 2
+00:06:09 - 	3: potted plant 3
+00:06:09 - 0-view_3.png:
+00:06:09 - 	7: trash bin 2
+00:06:09 - 	8: sofa chair 3
+00:06:09 - 0-view_5.png:
+00:06:09 - 	10: potted plant 1
+00:06:09 - 1-view_0.png:
+00:06:09 - 	13: sofa chair 1
+00:06:09 - 	14: picture 4
+00:06:09 - 	15: picture 2
+00:06:09 - 
+Scene 00803-k1cupFYWXJ6 Episode 1 Subtask 2/6
+00:06:09 - 
+== step: 0, global step: 3 ==
+00:06:10 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:06:17 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:06:17 - Target object 45 detected with IoU 0.8859241654963811 in 3-view_1.png!!!
+00:06:25 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:06:32 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.03 seconds
+00:06:32 - Target object 59 detected with IoU 0.9465006341519658 in 3-view_3.png!!!
+00:06:40 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.05 seconds
+00:06:40 - Target object 59 detected with IoU 0.9432676640497704 in 3-view_4.png!!!
+00:06:48 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.06 seconds
+00:06:57 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:06:57 - Target object 45 detected with IoU 0.9323554001672114 in 3-view_6.png!!!
+00:06:57 - Target object 52 detected with IoU 0.9311162136138064 in 3-view_6.png!!!
+00:07:05 - Goal object mapping: {45: [26, 26], 52: [17], 59: [3, 3], 136: []}
+00:07:05 - Step 0, update snapshots, 14 objects, 6 snapshots
+00:07:06 - Querying VLM with 6 snapshots and 3 SCOPE-ranked frontier candidates
+00:07:06 - Querying VLM with 6 snapshots and 3 frontiers
+00:07:08 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:07:08 - Prefiltering selected classes: ['potted plant', 'window', 'picture', 'end table']
+00:07:08 - Prefiltering snapshot: 6 -> 5
+00:07:08 - Input data: 5 snapshots, 3 frontiers
+00:07:08 - Potential scores: [2.6796674727349616, 2.948708876652785, 1.5636581227398239]
+00:07:08 - Input prompt length: 284 chars
+00:07:09 - Saved full VLM input bundle to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/vlm_full_inputs/1784880502656_00803-k1cupFYWXJ6_1_1
+00:07:09 - VLM API call attempt 1, retries remaining: 4
+00:07:23 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:07:23 - Raw VLM response: ```json
+{"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 3, "object_index": 0, "subtask_status": "completed", "reason": "Snapshot 3 contains a clear view of the...
+00:07:23 - Performing self-refinement validation for object task
+00:07:23 - Performing self-refinement validation for object task...
+00:07:27 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:07:27 - Self-refine: CONFIRMED choice for object task
+00:07:27 - Self-refine confirmed snapshot choice
+00:07:27 - Final response after 1 iterations: snapshot 3, object 0
+00:07:27 - Response: [snapshot 3, object 0]
+Reason: [Snapshot 3 contains a clear view of the potted plant. This confirms that I have found the decorative plant and can now proceed to the next task.]
+00:07:27 - Prediction: snapshot, 3
+00:07:27 - The index of target snapshot 4
+00:07:27 - Next choice: Snapshot of 3-view_6.png
+00:07:27 - Next choice Object: 17, potted plant
+00:07:27 - Structured VLM decision: {"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 3, "object_index": 0, "subtask_status": "completed", "reason": "Snapshot 3 contains a clear view of the potted plant. This confirms that I have found the decorative plant and can now proceed to the next task.", "confidence": "high"}
+00:07:27 - Current position: [   -0.54342     -14.923     -1.3124], 0.050
+00:07:27 - Saved semantic BEV: results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/visualization/bev_semantic/3_00803-k1cupFYWXJ6_1_1_bev.png
+00:07:30 - Potential graph stats: {'total_nodes': 450, 'avg_potential': 0.22758416537500745, 'max_potential': 2.948708876652785, 'avg_exploration_value': 0.1984389272702267, 'max_exploration_value': 2.851747404724118, 'total_visits': 28, 'nodes_visited': 10, 'coverage_ratio': 0.022222222222222223, 'current_step': 7}
+00:07:32 - Saved potential graph state to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/potential_graph/potential_state_00803-k1cupFYWXJ6_1_1.pkl
+00:07:32 - Success: [26, 17, 3] in chosen snapshot 3-view_6.png!
+00:07:32 - Success: agent reached the target viewpoint at distance 0.2888326048851013!
+00:07:32 - Subtask 00803-k1cupFYWXJ6_1_1 finished, 0.05 length
+00:07:32 - Subtask spl by snapshot: 1.0, spl by distance: 1.0
+00:07:32 - Success rate by snapshot: 50.00
+00:07:32 - Success rate by distance: 50.00
+00:07:32 - SPL by snapshot: 50.00
+00:07:32 - SPL by distance: 50.00
+00:07:32 - Success rate for description: 0.00
+00:07:32 - Success rate for object: 100.00
+00:07:32 - SPL for description: 0.00
+00:07:32 - SPL for object: 100.00
+00:07:32 - Filtered snapshots/Total snapshots/Total frames: 5/6/19
+00:07:32 - Scene graph of question 00803-k1cupFYWXJ6_1_1:
+00:07:32 - Question: Can you find the decorative plant?
+00:07:32 - Task type: object
+00:07:32 - Answer: decorative plant
+00:07:32 - 3-view_6.png:
+00:07:32 - 	1: chair 7
+00:07:32 - 	17: potted plant 3
+00:07:32 - 0-view_0.png:
+00:07:32 - 	2: stairs 4
+00:07:32 - 	3: potted plant 5
+00:07:32 - 0-view_3.png:
+00:07:32 - 	7: trash bin 2
+00:07:32 - 	8: sofa chair 3
+00:07:32 - 0-view_5.png:
+00:07:32 - 	10: potted plant 1
+00:07:32 - 1-view_0.png:
+00:07:32 - 	13: sofa chair 1
+00:07:32 - 	14: picture 6
+00:07:32 - 	15: picture 4
+00:07:32 - 3-view_1.png:
+00:07:32 - 	20: end table 6
+00:07:32 - 	24: chair 6
+00:07:32 - 	26: potted plant 3
+00:07:32 - 	40: window 1
+00:07:32 - 
+Scene 00803-k1cupFYWXJ6 Episode 1 Subtask 3/6
+00:07:32 - 
+== step: 0, global step: 4 ==
+00:07:32 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:07:38 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.09 seconds
+00:07:38 - Target object 45 detected with IoU 0.8920022062879206 in 4-view_1.png!!!
+00:07:44 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:07:44 - Target object 45 detected with IoU 0.8897176345231753 in 4-view_2.png!!!
+00:07:50 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:07:56 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.03 seconds
+00:08:03 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:08:10 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:08:10 - Target object 45 detected with IoU 0.892692750287687 in 4-view_6.png!!!
+00:08:16 - Goal object mapping: {45: [26, 26, 26]}
+00:08:16 - Step 0, update snapshots, 14 objects, 6 snapshots
+00:08:22 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:08:22 - Frontier 2 potential estimation: **SEMANTIC_RICHNESS:** High
+**EXPLORABILITY:** Medium
+**GOAL_RELEVANCE:** Medium
+**POTENTIAL_SCORE:** 3.5
+**EXPLANATION:** The image contains several identifiable objects like armchairs, a table, and what appears to be a plant on a ledge. While the scene is semantically rich, exploration seems limited to the visible corridor; however, it does show potential for finding the described plant near furniture as stated in the goal question.
+00:08:22 - Frontier 2 final potential score: 2.75
+00:08:23 - Querying VLM with 6 snapshots and 3 SCOPE-ranked frontier candidates
+00:08:23 - Querying VLM with 6 snapshots and 3 frontiers
+00:08:26 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:08:26 - Prefiltering selected classes: ['potted plant', 'armchair', 'end table']
+00:08:26 - Prefiltering snapshot: 6 -> 4
+00:08:26 - Input data: 4 snapshots, 3 frontiers
+00:08:26 - Potential scores: [2.948708876652785, 2.74878154113839, 1.5636581227398239]
+00:08:26 - Input prompt length: 284 chars
+00:08:26 - Saved full VLM input bundle to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/vlm_full_inputs/1784880579903_00803-k1cupFYWXJ6_1_2
+00:08:26 - VLM API call attempt 1, retries remaining: 4
+00:08:39 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:08:39 - Raw VLM response: ```json
+{"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 2, "object_index": 1, "subtask_status": "completed", "reason": "Snapshot 2 contains a potted plant to t...
+00:08:39 - Performing self-refinement validation for description task
+00:08:39 - Performing self-refinement validation for description task...
+00:08:43 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:08:43 - Self-refine: REJECTED choice for description task
+00:08:43 - Self-refine rejected choice (count: 1), retrying...
+00:08:43 - VLM API call attempt 2, retries remaining: 3
+00:08:58 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:08:58 - Raw VLM response: ```json
+{"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":1,"object_index":2,"subtask_status":"completed","reason":"Snapshot 1 contains an armchair and a table, with ...
+00:08:58 - Performing self-refinement validation for description task
+00:08:58 - Performing self-refinement validation for description task...
+00:09:02 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:09:02 - Self-refine: REJECTED choice for description task
+00:09:02 - Self-refine rejected choice (count: 1), retrying...
+00:09:02 - VLM API call attempt 3, retries remaining: 2
+00:09:15 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:09:15 - Raw VLM response: {"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":2,"object_index":1,"subtask_status":"completed","reason":"Snapshot 2 contains an armchair, and a potted plant to the...
+00:09:15 - Performing self-refinement validation for description task
+00:09:15 - Performing self-refinement validation for description task...
+00:09:19 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:09:19 - Self-refine: REJECTED choice for description task
+00:09:19 - Self-refine rejected choice (count: 2), retrying...
+00:09:19 - VLM API call attempt 4, retries remaining: 1
+00:09:32 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:09:32 - Raw VLM response: {"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":2,"object_index":1,"subtask_status":"completed","reason":"Snapshot 2 contains an armchair and a potted plant. The de...
+00:09:32 - Performing self-refinement validation for description task
+00:09:32 - Performing self-refinement validation for description task...
+00:09:36 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:09:36 - Self-refine: REJECTED choice for description task
+00:09:36 - Self-refine rejected choice (count: 3), retrying...
+00:09:36 - VLM API call attempt 5, retries remaining: 0
+00:09:50 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:09:50 - Raw VLM response: {"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":2,"object_index":1,"subtask_status":"completed","reason":"Snapshot 2 clearly shows a potted plant to the left of the...
+00:09:50 - Choice ('snapshot', '2', '1') has been rejected 3 times, accepting to break cycle
+00:09:50 - Final response after 5 iterations: snapshot 2, object 1
+00:09:50 - Response: [snapshot 2, object 1]
+Reason: [Snapshot 2 clearly shows a potted plant to the left of the armchair and below the window (acting as a table in this context), matching the description.]
+00:09:50 - Prediction: snapshot, 2
+00:09:50 - The index of target snapshot 4
+00:09:50 - Next choice: Snapshot of 4-view_6.png
+00:09:50 - Next choice Object: 17, potted plant
+00:09:50 - Structured VLM decision: {"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 2, "object_index": 1, "subtask_status": "completed", "reason": "Snapshot 2 clearly shows a potted plant to the left of the armchair and below the window (acting as a table in this context), matching the description.", "confidence": "high"}
+00:09:50 - Current position: [   -0.54342     -14.923     -1.3124], 0.000
+00:09:50 - Saved semantic BEV: results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/visualization/bev_semantic/4_00803-k1cupFYWXJ6_1_2_bev.png
+00:09:53 - Potential graph stats: {'total_nodes': 450, 'avg_potential': 0.2397487841042079, 'max_potential': 3.0486110352110267, 'avg_exploration_value': 0.20743349118712637, 'max_exploration_value': 2.9008686511342137, 'total_visits': 35, 'nodes_visited': 10, 'coverage_ratio': 0.022222222222222223, 'current_step': 8}
+00:09:54 - Saved potential graph state to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/potential_graph/potential_state_00803-k1cupFYWXJ6_1_2.pkl
+00:09:54 - Fail: [26] not in chosen snapshot!
+00:09:54 - Fail: agent failed to reach the target viewpoint at distance 1.3694533109664917!
+00:09:54 - Subtask 00803-k1cupFYWXJ6_1_2 finished, 0.0 length
+00:09:54 - Subtask spl by snapshot: 0.0, spl by distance: 0.0
+00:09:54 - Success rate by snapshot: 33.33
+00:09:54 - Success rate by distance: 33.33
+00:09:54 - SPL by snapshot: 33.33
+00:09:54 - SPL by distance: 33.33
+00:09:54 - Success rate for description: 0.00
+00:09:54 - Success rate for object: 100.00
+00:09:54 - SPL for description: 0.00
+00:09:54 - SPL for object: 100.00
+00:09:54 - Filtered snapshots/Total snapshots/Total frames: 4/6/25
+00:09:54 - Scene graph of question 00803-k1cupFYWXJ6_1_2:
+00:09:54 - Question: Can you find the decorative plant that matches this specific description: 'decorative plant that is located to the left of the armchair and below the table.'? Look for an object that fits both the category and the detailed characteristics mentioned in the description.
+00:09:54 - Task type: description
+00:09:54 - Answer: decorative plant
+00:09:54 - 4-view_6.png:
+00:09:54 - 	1: armchair 10
+00:09:54 - 	17: potted plant 4
+00:09:54 - 4-view_3.png:
+00:09:54 - 	2: stairs 6
+00:09:54 - 	3: potted plant 7
+00:09:54 - 0-view_3.png:
+00:09:54 - 	7: trash bin 2
+00:09:54 - 	8: sofa chair 3
+00:09:54 - 0-view_5.png:
+00:09:54 - 	10: potted plant 1
+00:09:54 - 1-view_0.png:
+00:09:54 - 	13: sofa chair 1
+00:09:54 - 	14: picture 8
+00:09:54 - 	15: picture 6
+00:09:54 - 3-view_1.png:
+00:09:54 - 	20: end table 9
+00:09:54 - 	24: armchair 12
+00:09:54 - 	26: potted plant 6
+00:09:54 - 	40: window 2
+00:09:54 - 
+Scene 00803-k1cupFYWXJ6 Episode 1 Subtask 4/6
+00:09:55 - 
+== step: 0, global step: 5 ==
+00:09:56 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:10:03 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.08 seconds
+00:10:12 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:10:20 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.03 seconds
+00:10:20 - Target object 59 detected with IoU 0.9394132653061225 in 5-view_3.png!!!
+00:10:27 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.02 seconds
+00:10:27 - Target object 59 detected with IoU 0.9381472957422324 in 5-view_4.png!!!
+00:10:35 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.05 seconds
+00:10:43 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:10:50 - Goal object mapping: {59: [3, 3]}
+00:10:50 - Step 0, update snapshots, 14 objects, 6 snapshots
+00:10:51 - Querying VLM with 6 snapshots and 3 SCOPE-ranked frontier candidates
+00:10:51 - Querying VLM with 6 snapshots and 3 frontiers
+00:10:55 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:10:55 - Prefiltering selected classes: ['stairs', 'window', 'picture', 'armchair', 'sofa chair', 'end table', 'trash bin']
+00:10:55 - Prefiltering snapshot: 6 -> 5
+00:10:55 - Input data: 5 snapshots, 3 frontiers
+00:10:55 - Potential scores: [2.948708876652785, 2.74878154113839, 1.5636581227398239]
+00:10:55 - Input prompt length: 284 chars
+00:10:56 - Saved full VLM input bundle to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/vlm_full_inputs/1784880728891_00803-k1cupFYWXJ6_1_3
+00:10:56 - VLM API call attempt 1, retries remaining: 4
+00:11:12 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:11:12 - Raw VLM response: {"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":0,"object_index":2,"subtask_status":"completed","reason":"The question asks for the object at the center of the give...
+00:11:12 - Performing self-refinement validation for image task
+00:11:12 - Performing self-refinement validation for image task...
+00:11:18 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:11:18 - Self-refine: REJECTED choice for image task
+00:11:18 - Self-refine rejected choice (count: 1), retrying...
+00:11:18 - VLM API call attempt 2, retries remaining: 3
+00:11:35 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:11:35 - Raw VLM response: {"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":0,"object_index":2,"subtask_status":"completed","reason":"The question asks to find the object at the center of the ...
+00:11:35 - Performing self-refinement validation for image task
+00:11:35 - Performing self-refinement validation for image task...
+00:11:40 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:11:40 - Self-refine: REJECTED choice for image task
+00:11:40 - Self-refine rejected choice (count: 2), retrying...
+00:11:40 - VLM API call attempt 3, retries remaining: 2
+00:11:56 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:11:56 - Raw VLM response: {"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":0,"object_index":2,"subtask_status":"completed","reason":"The question asks to find the object at the center of the ...
+00:11:56 - Performing self-refinement validation for image task
+00:11:56 - Performing self-refinement validation for image task...
+00:12:00 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:12:00 - Self-refine: REJECTED choice for image task
+00:12:00 - Self-refine rejected choice (count: 3), retrying...
+00:12:00 - VLM API call attempt 4, retries remaining: 1
+00:12:17 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:12:17 - Raw VLM response: ```json
+{"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":0,"object_index":2,"subtask_status":"completed","reason":"The question asks for the object at the center of ...
+00:12:17 - Choice ('snapshot', '0', '2') has been rejected 3 times, accepting to break cycle
+00:12:17 - Final response after 4 iterations: snapshot 0, object 2
+00:12:17 - Response: [snapshot 0, object 2]
+Reason: [The question asks for the object at the center of the image, and Snapshot 0 contains a clear view of the window which is located in the center of the initial viewpoint. The cropped window image provides sufficient evidence to identify it as the target object.]
+00:12:17 - Prediction: snapshot, 0
+00:12:17 - The index of target snapshot 1
+00:12:17 - Next choice: Snapshot of 3-view_1.png
+00:12:17 - Next choice Object: 40, window
+00:12:17 - Structured VLM decision: {"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 0, "object_index": 2, "subtask_status": "completed", "reason": "The question asks for the object at the center of the image, and Snapshot 0 contains a clear view of the window which is located in the center of the initial viewpoint. The cropped window image provides sufficient evidence to identify it as the target object.", "confidence": "high"}
+00:12:17 - Current position: [   -0.79342     -14.923     -2.2624], 0.982
+00:12:18 - Saved semantic BEV: results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/visualization/bev_semantic/5_00803-k1cupFYWXJ6_1_3_bev.png
+00:12:20 - Potential graph stats: {'total_nodes': 450, 'avg_potential': 0.2397487841042079, 'max_potential': 3.0486110352110267, 'avg_exploration_value': 0.20221880704285464, 'max_exploration_value': 2.9008686511342137, 'total_visits': 42, 'nodes_visited': 13, 'coverage_ratio': 0.028888888888888888, 'current_step': 8}
+00:12:20 - 
+== step: 1, global step: 6 ==
+00:12:21 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.05 seconds
+00:12:29 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:12:37 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:12:43 - Goal object mapping: {59: [3, 3]}
+00:12:43 - Step 1, update snapshots, 15 objects, 7 snapshots
+00:12:50 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:12:50 - Frontier 2 potential estimation: **SEMANTIC_RICHNESS:** High
+**EXPLORABILITY:** Medium
+**GOAL_RELEVANCE:** High
+**POTENTIAL_SCORE:** 4.5
+**EXPLANATION:** This frontier shows a continuation of the hallway seen in the goal image, with similar architectural details and furniture. Exploring this area could directly reveal the target object or provide a clearer view into the room where it resides, making it highly relevant to achieving the goal. The doorway offers good explorability.
+00:12:50 - Frontier 2 final potential score: 3.18
+00:12:51 - Current position: [    -1.0434     -14.923     -3.2124], 1.965
+00:12:52 - Saved semantic BEV: results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/visualization/bev_semantic/6_00803-k1cupFYWXJ6_1_3_bev.png
+00:12:54 - Potential graph stats: {'total_nodes': 450, 'avg_potential': 0.273114771640113, 'max_potential': 3.4279398934485794, 'avg_exploration_value': 0.22685188980816917, 'max_exploration_value': 3.156846676680159, 'total_visits': 49, 'nodes_visited': 16, 'coverage_ratio': 0.035555555555555556, 'current_step': 9}
+00:12:54 - 
+== step: 2, global step: 7 ==
+00:12:55 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.03 seconds
+00:13:02 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:13:08 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.03 seconds
+00:13:14 - Goal object mapping: {59: [3, 3]}
+00:13:14 - Step 2, update snapshots, 16 objects, 8 snapshots
+00:13:20 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:13:20 - Frontier 2 potential estimation: **SEMANTIC_RICHNESS:** High
+**EXPLORABILITY:** Medium
+**GOAL_RELEVANCE:** High
+**POTENTIAL_SCORE:** 4.5
+**EXPLANATION:** The frontier shows a room with furniture, including what appears to be an ornate chair and glimpses into another space beyond the doorway. This is semantically rich and highly relevant as it presents potential locations for the target object in the goal image. Exploring this area could lead directly to finding the exact object.
+00:13:20 - Frontier 2 final potential score: 3.48
+00:13:21 - Current position: [    -1.1434     -14.923     -3.3624], 2.145
+00:13:21 - Saved semantic BEV: results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/visualization/bev_semantic/7_00803-k1cupFYWXJ6_1_3_bev.png
+00:13:24 - Potential graph stats: {'total_nodes': 450, 'avg_potential': 0.3043937120887684, 'max_potential': 3.558845273975754, 'avg_exploration_value': 0.2521734738986894, 'max_exploration_value': 3.2395377415892694, 'total_visits': 55, 'nodes_visited': 17, 'coverage_ratio': 0.03777777777777778, 'current_step': 10}
+00:13:26 - Saved potential graph state to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/potential_graph/potential_state_00803-k1cupFYWXJ6_1_3.pkl
+00:13:26 - Fail: [3] not in chosen snapshot!
+00:13:26 - Fail: agent failed to reach the target viewpoint at distance 4.000415325164795!
+00:13:26 - Subtask 00803-k1cupFYWXJ6_1_3 finished, 2.1449658342120497 length
+00:13:26 - Subtask spl by snapshot: 0.0, spl by distance: 0.0
+00:13:26 - Success rate by snapshot: 25.00
+00:13:26 - Success rate by distance: 25.00
+00:13:26 - SPL by snapshot: 25.00
+00:13:26 - SPL by distance: 25.00
+00:13:26 - Success rate for description: 0.00
+00:13:26 - Success rate for object: 100.00
+00:13:26 - Success rate for image: 0.00
+00:13:26 - SPL for description: 0.00
+00:13:26 - SPL for object: 100.00
+00:13:26 - SPL for image: 0.00
+00:13:26 - Filtered snapshots/Total snapshots/Total frames: 5/8/37
+00:13:26 - Scene graph of question 00803-k1cupFYWXJ6_1_3:
+00:13:26 - Question: Could you find the exact object captured at the center of the following image? You need to pay attention to the environment and find the exact object.
+00:13:26 - Task type: image
+00:13:26 - Answer: decorative plant
+00:13:26 - 4-view_6.png:
+00:13:26 - 	1: armchair 16
+00:13:26 - 	17: potted plant 5
+00:13:26 - 4-view_3.png:
+00:13:26 - 	2: stairs 7
+00:13:26 - 	3: potted plant 9
+00:13:26 - 0-view_3.png:
+00:13:26 - 	7: trash bin 2
+00:13:26 - 	8: sofa chair 3
+00:13:26 - 0-view_5.png:
+00:13:26 - 	10: potted plant 1
+00:13:26 - 1-view_0.png:
+00:13:26 - 	13: sofa chair 1
+00:13:26 - 6-view_0.png:
+00:13:26 - 	14: picture 12
+00:13:26 - 	15: picture 10
+00:13:26 - 	103: picture 1
+00:13:26 - 3-view_1.png:
+00:13:26 - 	20: end table 14
+00:13:26 - 	24: armchair 26
+00:13:26 - 	26: potted plant 11
+00:13:26 - 	40: window 5
+00:13:26 - 7-view_0.png:
+00:13:26 - 	114: window 1
+00:13:26 - 
+Scene 00803-k1cupFYWXJ6 Episode 1 Subtask 5/6
+00:13:26 - 
+== step: 0, global step: 8 ==
+00:13:26 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.02 seconds
+00:13:31 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.03 seconds
+00:13:38 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.05 seconds
+00:13:45 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.08 seconds
+00:13:52 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:13:59 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:13:59 - Target object 85 detected with IoU 0.9621558655567236 in 8-view_5.png!!!
+00:14:06 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.05 seconds
+00:14:13 - Goal object mapping: {84: [], 85: [14], 251: [], 253: [], 254: [], 404: [], 405: [], 406: [], 407: [], 408: [], 494: [], 496: [], 570: [], 571: [], 572: [], 574: [], 611: [], 640: [], 647: [], 655: [], 829: [], 830: [], 831: [], 832: [], 833: []}
+00:14:13 - Step 0, update snapshots, 19 objects, 10 snapshots
+00:14:18 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:14:18 - Frontier 2 potential estimation: **SEMANTIC_RICHNESS:** High
+**EXPLORABILITY:** Medium
+**GOAL_RELEVANCE:** Medium
+**POTENTIAL_SCORE:** 3.8
+**EXPLANATION:** The image contains a chair and an opening to another room with visible furniture, suggesting semantic richness. Exploring this doorway could lead to new areas of the house but its width may limit exploration, so explorability is moderate. Since we are looking for a picture, any room with furnishings has potential, making it moderately relevant.
+00:14:18 - Frontier 2 final potential score: 3.48
+00:14:20 - Querying VLM with 10 snapshots and 3 SCOPE-ranked frontier candidates
+00:14:20 - Querying VLM with 10 snapshots and 3 frontiers
+00:14:22 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:14:22 - Prefiltering selected classes: ['picture', 'window']
+00:14:22 - Prefiltering snapshot: 10 -> 5
+00:14:22 - Input data: 5 snapshots, 3 frontiers
+00:14:22 - Potential scores: [3.479239392361194, 2.948708876652785, 1.5636581227398239]
+00:14:22 - Input prompt length: 284 chars
+00:14:23 - Saved full VLM input bundle to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/vlm_full_inputs/1784880936772_00803-k1cupFYWXJ6_1_4
+00:14:23 - VLM API call attempt 1, retries remaining: 4
+00:14:37 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:14:37 - Raw VLM response: ```json
+{"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 0, "object_index": 0, "subtask_status": "completed", "reason": "Snapshot 0 contains multiple pictures o...
+00:14:37 - Performing self-refinement validation for object task
+00:14:37 - Performing self-refinement validation for object task...
+00:14:40 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:14:40 - Self-refine: CONFIRMED choice for object task
+00:14:40 - Self-refine confirmed snapshot choice
+00:14:40 - Final response after 1 iterations: snapshot 0, object 0
+00:14:40 - Response: [snapshot 0, object 0]
+Reason: [Snapshot 0 contains multiple pictures on the wall. The question asks to find "the picture", and this snapshot directly shows several pictures which satisfies the request.]
+00:14:40 - Prediction: snapshot, 0
+00:14:40 - The index of target snapshot 2
+00:14:40 - Next choice: Snapshot of 6-view_0.png
+00:14:40 - Next choice Object: 14, picture
+00:14:40 - Structured VLM decision: {"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 0, "object_index": 0, "subtask_status": "completed", "reason": "Snapshot 0 contains multiple pictures on the wall. The question asks to find \"the picture\", and this snapshot directly shows several pictures which satisfies the request.", "confidence": "high"}
+00:14:40 - Current position: [    -1.0434     -14.923     -2.6624], 0.707
+00:14:40 - Saved semantic BEV: results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/visualization/bev_semantic/8_00803-k1cupFYWXJ6_1_4_bev.png
+00:14:43 - Potential graph stats: {'total_nodes': 450, 'avg_potential': 0.31718985785835546, 'max_potential': 3.506341571147865, 'avg_exploration_value': 0.26168118392356665, 'max_exploration_value': 3.174069069482817, 'total_visits': 62, 'nodes_visited': 17, 'coverage_ratio': 0.03777777777777778, 'current_step': 11}
+00:14:44 - Saved potential graph state to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/potential_graph/potential_state_00803-k1cupFYWXJ6_1_4.pkl
+00:14:44 - Success: [14] in chosen snapshot 6-view_0.png!
+00:14:44 - Success: agent reached the target viewpoint at distance 0.4683687388896942!
+00:14:44 - Subtask 00803-k1cupFYWXJ6_1_4 finished, 0.7071067811865476 length
+00:14:44 - Subtask spl by snapshot: 0.798992371251316, spl by distance: 0.798992371251316
+00:14:44 - Success rate by snapshot: 40.00
+00:14:44 - Success rate by distance: 40.00
+00:14:44 - SPL by snapshot: 35.98
+00:14:44 - SPL by distance: 35.98
+00:14:44 - Success rate for description: 0.00
+00:14:44 - Success rate for object: 100.00
+00:14:44 - Success rate for image: 0.00
+00:14:44 - SPL for description: 0.00
+00:14:44 - SPL for object: 89.95
+00:14:44 - SPL for image: 0.00
+00:14:44 - Filtered snapshots/Total snapshots/Total frames: 5/10/44
+00:14:44 - Scene graph of question 00803-k1cupFYWXJ6_1_4:
+00:14:44 - Question: Can you find the picture?
+00:14:44 - Task type: object
+00:14:44 - Answer: picture
+00:14:44 - 8-view_3.png:
+00:14:44 - 	1: armchair 21
+00:14:44 - 	20: end table 16
+00:14:44 - 	24: armchair 33
+00:14:44 - 	26: potted plant 14
+00:14:44 - 	40: window 7
+00:14:44 - 	139: end table 1
+00:14:44 - 4-view_3.png:
+00:14:44 - 	2: stairs 7
+00:14:44 - 	3: potted plant 9
+00:14:44 - 0-view_3.png:
+00:14:44 - 	7: trash bin 2
+00:14:44 - 	8: sofa chair 3
+00:14:44 - 0-view_5.png:
+00:14:44 - 	10: potted plant 1
+00:14:44 - 1-view_0.png:
+00:14:44 - 	13: sofa chair 1
+00:14:44 - 6-view_0.png:
+00:14:44 - 	14: picture 13
+00:14:44 - 	15: picture 10
+00:14:44 - 	103: picture 1
+00:14:44 - 4-view_6.png:
+00:14:44 - 	17: potted plant 6
+00:14:44 - 7-view_0.png:
+00:14:44 - 	114: window 2
+00:14:44 - 8-view_1.png:
+00:14:44 - 	129: window 1
+00:14:44 - 8-view_6.png:
+00:14:44 - 	148: window 1
+00:14:44 - 
+Scene 00803-k1cupFYWXJ6 Episode 1 Subtask 6/6
+00:14:44 - 
+== step: 0, global step: 9 ==
+00:14:45 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:14:53 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.08 seconds
+00:15:00 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:15:00 - Target object 85 detected with IoU 0.963341631104789 in 9-view_2.png!!!
+00:15:07 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.04 seconds
+00:15:07 - Target object 84 detected with IoU 0.9500277623542477 in 9-view_3.png!!!
+00:15:07 - Target object 85 detected with IoU 0.967726266932916 in 9-view_3.png!!!
+00:15:14 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.03 seconds
+00:15:14 - Target object 85 detected with IoU 0.9608701663824492 in 9-view_4.png!!!
+00:15:21 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.03 seconds
+00:15:28 - Done! Execution time of detections_to_obj_pcd_and_bbox function: 0.07 seconds
+00:15:28 - Target object 84 detected with IoU 0.9581245176913047 in 9-view_6.png!!!
+00:15:28 - Target object 85 detected with IoU 0.9654106191014606 in 9-view_6.png!!!
+00:15:34 - Goal object mapping: {84: [15, 15], 85: [14, 14, 14, 14], 251: [], 253: [], 254: [], 404: [], 405: [], 406: [], 407: [], 408: [], 494: [], 496: [], 570: [], 571: [], 572: [], 574: [], 611: [], 640: [], 647: [], 655: [], 829: [], 830: [], 831: [], 832: [], 833: []}
+00:15:35 - Step 0, update snapshots, 19 objects, 10 snapshots
+00:15:35 - Querying VLM with 10 snapshots and 3 SCOPE-ranked frontier candidates
+00:15:35 - Querying VLM with 10 snapshots and 3 frontiers
+00:15:38 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:15:38 - Prefiltering selected classes: ['picture', 'window']
+00:15:38 - Prefiltering snapshot: 10 -> 5
+00:15:38 - Input data: 5 snapshots, 3 frontiers
+00:15:38 - Potential scores: [3.479239392361194, 2.948708876652785, 1.5636581227398239]
+00:15:38 - Input prompt length: 284 chars
+00:15:38 - Saved full VLM input bundle to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/vlm_full_inputs/1784881012076_00803-k1cupFYWXJ6_1_5
+00:15:38 - VLM API call attempt 1, retries remaining: 4
+00:15:52 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:15:52 - Raw VLM response: ```json
+{"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":0,"object_index":0,"subtask_status":"completed","reason":"The question asks to find a picture, and Snapshot ...
+00:15:52 - Performing self-refinement validation for object task
+00:15:52 - Performing self-refinement validation for object task...
+00:15:56 - HTTP Request: POST http://localhost:11435/v1/chat/completions "HTTP/1.1 200 OK"
+00:15:56 - Self-refine: CONFIRMED choice for object task
+00:15:56 - Self-refine confirmed snapshot choice
+00:15:56 - Final response after 1 iterations: snapshot 0, object 0
+00:15:56 - Response: [snapshot 0, object 0]
+Reason: [The question asks to find a picture, and Snapshot 0 contains multiple pictures. Object 0 in Snapshot 0 appears to be the most likely answer based on its visual characteristics. Therefore, I select this object as the answer to complete the task.]
+00:15:56 - Prediction: snapshot, 0
+00:15:56 - The index of target snapshot 2
+00:15:56 - Next choice: Snapshot of 9-view_3.png
+00:15:56 - Next choice Object: 14, picture
+00:15:56 - Structured VLM decision: {"selected_candidate": "object", "decision_type": "go_to_memory_node", "snapshot_index": 0, "object_index": 0, "subtask_status": "completed", "reason": "The question asks to find a picture, and Snapshot 0 contains multiple pictures. Object 0 in Snapshot 0 appears to be the most likely answer based on its visual characteristics. Therefore, I select this object as the answer to complete the task.", "confidence": "high"}
+00:15:56 - Current position: [    -1.0434     -14.923     -2.6624], 0.000
+00:15:56 - Saved semantic BEV: results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/visualization/bev_semantic/9_00803-k1cupFYWXJ6_1_5_bev.png
+00:15:59 - Potential graph stats: {'total_nodes': 450, 'avg_potential': 0.31718985785835546, 'max_potential': 3.506341571147865, 'avg_exploration_value': 0.26059702859603606, 'max_exploration_value': 3.174069069482817, 'total_visits': 69, 'nodes_visited': 17, 'coverage_ratio': 0.03777777777777778, 'current_step': 11}
+00:16:00 - Saved potential graph state to results/metric-frontier-readable-bev-dedupe-smoothing-check-00803/00803-k1cupFYWXJ6_ep_1/potential_graph/potential_state_00803-k1cupFYWXJ6_1_5.pkl
+00:16:00 - Success: [15, 14] in chosen snapshot 9-view_3.png!
+00:16:01 - Success: agent reached the target viewpoint at distance 0.4683687388896942!
+00:16:01 - Subtask 00803-k1cupFYWXJ6_1_5 finished, 0.0 length
+00:16:01 - Subtask spl by snapshot: 1.0, spl by distance: 1.0
+00:16:01 - Success rate by snapshot: 50.00
+00:16:01 - Success rate by distance: 50.00
+00:16:01 - SPL by snapshot: 46.65
+00:16:01 - SPL by distance: 46.65
+00:16:01 - Success rate for description: 0.00
+00:16:01 - Success rate for object: 100.00
+00:16:01 - Success rate for image: 0.00
+00:16:01 - SPL for description: 0.00
+00:16:01 - SPL for object: 93.30
+00:16:01 - SPL for image: 0.00
+00:16:01 - Filtered snapshots/Total snapshots/Total frames: 5/10/51
+00:16:01 - Scene graph of question 00803-k1cupFYWXJ6_1_5:
+00:16:01 - Question: Can you find the picture?
+00:16:01 - Task type: object
+00:16:01 - Answer: picture
+00:16:01 - 8-view_3.png:
+00:16:01 - 	1: armchair 26
+00:16:01 - 	20: end table 16
+00:16:01 - 	24: armchair 36
+00:16:01 - 	26: potted plant 15
+00:16:01 - 	40: window 7
+00:16:01 - 	139: end table 1
+00:16:01 - 4-view_3.png:
+00:16:01 - 	2: stairs 7
+00:16:01 - 	3: potted plant 9
+00:16:01 - 0-view_3.png:
+00:16:01 - 	7: trash bin 2
+00:16:01 - 	8: sofa chair 3
+00:16:01 - 0-view_5.png:
+00:16:01 - 	10: potted plant 1
+00:16:01 - 1-view_0.png:
+00:16:01 - 	13: sofa chair 1
+00:16:01 - 9-view_3.png:
+00:16:01 - 	14: picture 17
+00:16:01 - 	15: picture 12
+00:16:01 - 	103: picture 3
+00:16:01 - 4-view_6.png:
+00:16:01 - 	17: potted plant 8
+00:16:01 - 7-view_0.png:
+00:16:01 - 	114: window 2
+00:16:01 - 8-view_1.png:
+00:16:01 - 	129: window 1
+00:16:01 - 8-view_6.png:
+00:16:01 - 	148: window 2
+00:16:01 - Episode 1 finish
+00:16:01 - Total success_by_snapshot results: 50.00, len: 6
+00:16:01 - Total spl_by_snapshot results: 46.65, len: 6
+00:16:01 - Total success_by_distance results: 50.00, len: 6
+00:16:01 - Total spl_by_distance results: 46.65, len: 6
+00:16:01 - Total success_by_task results for description: 0.00, len: 2
+00:16:01 - Total success_by_task results for object: 100.00, len: 3
+00:16:01 - Total success_by_task results for image: 0.00, len: 1
+00:16:01 - Total spl_by_task results for description: 0.00, len: 2
+00:16:01 - Total spl_by_task results for object: 93.30, len: 3
+00:16:01 - Total spl_by_task results for image: 0.00, len: 1
+00:16:01 - Average number of filtered snapshots: 4.833333333333333
+00:16:01 - Average number of total snapshots: 7.5
+00:16:01 - Average number of total frames: 31.5
+00:16:01 - VLM timing summary: successful=54/54, overall_mean=7.964 s (individual API requests only)
+00:16:01 - VLM timing [decision]: successful=20/20, mean=13.168 s
+00:16:01 - VLM timing [frontier_potential]: successful=11/11, mean=8.337 s
+00:16:01 - VLM timing [prefilter]: successful=7/7, mean=1.853 s
+00:16:01 - VLM timing [self_refine]: successful=16/16, mean=3.876 s
+00:16:01 - All scenes finish

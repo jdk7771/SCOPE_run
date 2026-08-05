@@ -1,0 +1,431 @@
+{
+  "schema_version": 1,
+  "measurement": "Each record is one chat.completions.create attempt; retry sleep and local processing are excluded.",
+  "started_at_utc": "2026-07-24T07:22:30.551162+00:00",
+  "updated_at_utc": "2026-07-24T07:36:35.416989+00:00",
+  "metadata": {
+    "experiment": "metric-frontier-readable-bev-dedupe-check-00803",
+    "split": 2,
+    "start_ratio": 0.0,
+    "end_ratio": 1.0,
+    "scene_name": "k1cupFYWXJ6"
+  },
+  "records": [
+    {
+      "timestamp_utc": "2026-07-24T07:24:43.107736+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 49.145982,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:24:48.254404+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 4.598899,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:24:52.006869+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 3.62066,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:24:57.552247+00:00",
+      "call_type": "prefilter",
+      "response_seconds": 1.611033,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:25:09.639022+00:00",
+      "call_type": "decision",
+      "response_seconds": 12.081025,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:25:13.547760+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 3.907831,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:25:25.745663+00:00",
+      "call_type": "decision",
+      "response_seconds": 12.196943,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:25:28.724406+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 2.977164,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:25:40.372051+00:00",
+      "call_type": "decision",
+      "response_seconds": 11.625754,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:26:15.068892+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 5.56813,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:26:19.556940+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 4.368058,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:26:22.706861+00:00",
+      "call_type": "prefilter",
+      "response_seconds": 1.601502,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:26:35.729270+00:00",
+      "call_type": "decision",
+      "response_seconds": 13.021061,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:26:39.638125+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 3.908017,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:26:53.448936+00:00",
+      "call_type": "decision",
+      "response_seconds": 13.808921,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:26:56.673943+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 3.224135,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:27:09.887151+00:00",
+      "call_type": "decision",
+      "response_seconds": 13.211969,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:27:13.886222+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 3.998226,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:27:18.755597+00:00",
+      "call_type": "decision",
+      "response_seconds": 4.868158,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:27:41.571154+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 5.009821,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:27:45.905121+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 4.216204,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:28:48.058708+00:00",
+      "call_type": "prefilter",
+      "response_seconds": 1.903213,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:29:06.158912+00:00",
+      "call_type": "decision",
+      "response_seconds": 18.098695,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:29:09.539570+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 3.379688,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:29:57.182595+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 4.510304,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:30:00.293594+00:00",
+      "call_type": "prefilter",
+      "response_seconds": 1.587397,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:30:13.263969+00:00",
+      "call_type": "decision",
+      "response_seconds": 12.968957,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:30:17.748020+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 4.483081,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:30:30.861998+00:00",
+      "call_type": "decision",
+      "response_seconds": 13.108095,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:30:34.714847+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 3.851814,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:30:48.397020+00:00",
+      "call_type": "decision",
+      "response_seconds": 13.655255,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:30:51.931064+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 3.532945,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:30:56.273720+00:00",
+      "call_type": "decision",
+      "response_seconds": 4.331413,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:31:57.832545+00:00",
+      "call_type": "prefilter",
+      "response_seconds": 2.966853,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:32:09.605816+00:00",
+      "call_type": "decision",
+      "response_seconds": 11.771617,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:32:14.170133+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 4.563042,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:32:45.520654+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 5.439534,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:33:55.351964+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 4.39491,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:33:58.578271+00:00",
+      "call_type": "prefilter",
+      "response_seconds": 1.456986,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:34:08.582607+00:00",
+      "call_type": "decision",
+      "response_seconds": 10.002882,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:34:11.400383+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 2.81669,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:34:42.330963+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 4.799837,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:35:16.209934+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 4.35557,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:36:17.971457+00:00",
+      "call_type": "frontier_potential",
+      "response_seconds": 4.232155,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:36:21.122800+00:00",
+      "call_type": "prefilter",
+      "response_seconds": 1.482656,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:36:32.538409+00:00",
+      "call_type": "decision",
+      "response_seconds": 11.414042,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    },
+    {
+      "timestamp_utc": "2026-07-24T07:36:35.416965+00:00",
+      "call_type": "self_refine",
+      "response_seconds": 2.877379,
+      "success": true,
+      "attempt": 1,
+      "error_type": null
+    }
+  ],
+  "summary": {
+    "request_attempts": 47,
+    "successful_responses": 47,
+    "failed_attempts": 0,
+    "mean_success_response_seconds": 7.160734106382975,
+    "by_call_type": {
+      "decision": {
+        "request_attempts": 15,
+        "successful_responses": 15,
+        "failed_attempts": 0,
+        "mean_success_response_seconds": 11.744319133333333,
+        "min_success_response_seconds": 4.331413,
+        "max_success_response_seconds": 18.098695
+      },
+      "frontier_potential": {
+        "request_attempts": 13,
+        "successful_responses": 13,
+        "failed_attempts": 0,
+        "mean_success_response_seconds": 8.020004923076923,
+        "min_success_response_seconds": 3.62066,
+        "max_success_response_seconds": 49.145982
+      },
+      "prefilter": {
+        "request_attempts": 7,
+        "successful_responses": 7,
+        "failed_attempts": 0,
+        "mean_success_response_seconds": 1.801377142857143,
+        "min_success_response_seconds": 1.456986,
+        "max_success_response_seconds": 2.966853
+      },
+      "self_refine": {
+        "request_attempts": 12,
+        "successful_responses": 12,
+        "failed_attempts": 0,
+        "mean_success_response_seconds": 3.6266676666666666,
+        "min_success_response_seconds": 2.81669,
+        "max_success_response_seconds": 4.563042
+      }
+    }
+  }
+}
