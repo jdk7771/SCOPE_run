@@ -82,9 +82,8 @@ batch 小实验中，`frontier_potential_batch_step` 是更重要的 stage 指�
 
 ## 5. 推荐阅读顺序
 
-1. `README_CN.md`：先看分支和实验总览。
+1. `各分支说明.md`：先看分支和实验总览。
 2. `docs/EXPERIMENT_MAIN_BASELINE_VS_METRIC_READABLE_BEV_CN.md`：看大实验，baseline/fix vs readable-BEV。
 3. `docs/EXPERIMENT_BATCH_FRONTIER_POTENTIAL_CN.md`：看小实验，batch frontier potential。
 4. `metrics/metrics_summary.csv`：查所有结果的原始汇总行。
 5. `artifacts/*`：需要复算指标或审计日志时再进入。
-

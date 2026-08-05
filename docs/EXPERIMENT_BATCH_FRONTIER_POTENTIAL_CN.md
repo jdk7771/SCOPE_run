@@ -74,7 +74,17 @@ task + F_0 image + F_1 image + F_2 image
 - `baseline_metric_control split 1` 是当前 readable-BEV 大实验使用的正式 5 cm baseline/fix 对照。
 - batch 小实验最好同时和这两个 baseline 看：一个看历史 pilot，一个看当前正式 baseline/fix。
 
-## 5. batch stage 结果
+## 5. 时间和 batch stage 结果
+
+时间和调用开销：
+
+| 方法 | 总耗时 | 相对正式 baseline/fix | 平均每 task | VLM 成功请求 | 平均 API 响应 | 估算 API 响应总时长 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| baseline_metric_control split 1 | **14:02:41** | - | **3.03 min** | 4,422 | 6.236 s | 7:39:34 |
+| batch reason1 | 17:21:19 | +3:18:38 | 3.75 min | 4,841 | 6.077 s | 8:10:20 |
+| batch reason2 | 14:45:41 | +0:43:00 | 3.19 min | **3,511** | 6.560 s | **6:23:54** |
+
+`batch reason2` 相比正式 baseline/fix 少 911 次 VLM 成功请求，估算 API 响应总时长少约 1:15:40；但 wall-clock 总耗时仍多 43 分钟。说明 batch scoring 能减少请求数，但运行时间还会被 batch prompt 复杂度、解析、本地处理、导航执行和任务轨迹影响。
 
 `vlm_timing.json` 中的 `stage_summary.frontier_potential_batch_step` 更能说明 batch 逻辑是否稳定：
 
@@ -111,4 +121,3 @@ task + F_0 image + F_1 image + F_2 image
 3. 把 batch 是否减少 API 成本、是否影响最终成功率分开报告。
 
 如果目标是提高 GOAT-Bench 成功率，优先继续 `feat/metric-frontier-readable-bev` 和 `feat/semantic-bev-dedupe-smoothing`，不要把 batch 小实验当主线。
-
