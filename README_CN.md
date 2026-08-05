@@ -5,6 +5,16 @@ GitHub 仓库：`https://github.com/jdk7771/SCOPE_run`
 仓库内结果文件夹：`experiment_results/scope_goatbench_results_release_2026-08-05`  
 服务器原始 release 包：`/mnt/data/scope_goatbench_results_release_2026-08-05`
 
+## 快速入口
+
+如果只想看最重要的大实验结果，请先打开：
+
+```text
+结果/README_CN.md
+```
+
+`结果/` 是重新整理后的中文入口目录，里面单独放了 `baseline/fix-tsdf05cm` 和 `feat/metric-frontier-readable-bev` 的大实验总览、汇总表，以及对应的 `json/pkl/yaml/log` 原始指标文件。完整归档仍保留在 `experiment_results/scope_goatbench_results_release_2026-08-05/`。
+
 ## 1. 先看哪几个文件
 
 | 文件 | 作用 |

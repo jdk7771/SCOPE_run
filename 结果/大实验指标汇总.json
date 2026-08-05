@@ -1,0 +1,100 @@
+{
+  "整理日期": "2026-08-05",
+  "实验": "baseline/fix-tsdf05cm vs feat/metric-frontier-readable-bev",
+  "说明": "两个方法都使用 5 cm TSDF，并且都完成 GOAT-Bench split 1/2/3。",
+  "结果": [
+    {
+      "方法": "baseline/fix 0.05m",
+      "分支": "baseline/fix-tsdf05cm",
+      "split": 1,
+      "任务数": 278,
+      "Snapshot success (%)": 20.50,
+      "Distance success (%)": 44.24,
+      "Snapshot SPL (%)": 16.29,
+      "Distance SPL (%)": 31.66,
+      "耗时": "14:02:41"
+    },
+    {
+      "方法": "metric readable-BEV",
+      "分支": "feat/metric-frontier-readable-bev",
+      "split": 1,
+      "任务数": 278,
+      "Snapshot success (%)": 33.09,
+      "Distance success (%)": 56.83,
+      "Snapshot SPL (%)": 23.18,
+      "Distance SPL (%)": 37.43,
+      "耗时": "20:09:44"
+    },
+    {
+      "方法": "baseline/fix 0.05m",
+      "分支": "baseline/fix-tsdf05cm",
+      "split": 2,
+      "任务数": 255,
+      "Snapshot success (%)": 19.22,
+      "Distance success (%)": 38.43,
+      "Snapshot SPL (%)": 13.75,
+      "Distance SPL (%)": 26.37,
+      "耗时": "13:35:03"
+    },
+    {
+      "方法": "metric readable-BEV",
+      "分支": "feat/metric-frontier-readable-bev",
+      "split": 2,
+      "任务数": 255,
+      "Snapshot success (%)": 21.96,
+      "Distance success (%)": 41.18,
+      "Snapshot SPL (%)": 15.92,
+      "Distance SPL (%)": 29.12,
+      "耗时": "20:35:10"
+    },
+    {
+      "方法": "baseline/fix 0.05m",
+      "分支": "baseline/fix-tsdf05cm",
+      "split": 3,
+      "任务数": 277,
+      "Snapshot success (%)": 15.16,
+      "Distance success (%)": 36.82,
+      "Snapshot SPL (%)": 11.38,
+      "Distance SPL (%)": 25.33,
+      "耗时": "17:24:40"
+    },
+    {
+      "方法": "metric readable-BEV",
+      "分支": "feat/metric-frontier-readable-bev",
+      "split": 3,
+      "任务数": 277,
+      "Snapshot success (%)": 25.27,
+      "Distance success (%)": 45.49,
+      "Snapshot SPL (%)": 18.78,
+      "Distance SPL (%)": 30.60,
+      "耗时": "06:29:45"
+    }
+  ],
+  "合并结果": [
+    {
+      "方法": "baseline/fix 0.05m",
+      "分支": "baseline/fix-tsdf05cm",
+      "任务数": 810,
+      "Snapshot success (%)": 18.27,
+      "Distance success (%)": 39.88,
+      "Snapshot SPL (%)": 13.84,
+      "Distance SPL (%)": 27.86
+    },
+    {
+      "方法": "metric readable-BEV",
+      "分支": "feat/metric-frontier-readable-bev",
+      "任务数": 810,
+      "Snapshot success (%)": 26.91,
+      "Distance success (%)": 48.02,
+      "Snapshot SPL (%)": 19.39,
+      "Distance SPL (%)": 32.49
+    }
+  ],
+  "提升": {
+    "Snapshot success (pp)": 8.64,
+    "Distance success (pp)": 8.14,
+    "Snapshot SPL (pp)": 5.55,
+    "Distance SPL (pp)": 4.63
+  }
+}
+

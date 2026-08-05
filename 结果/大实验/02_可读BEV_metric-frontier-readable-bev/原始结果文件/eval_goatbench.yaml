@@ -1,0 +1,113 @@
+# General
+seed: 3407
+exp_name: "metric-frontier-readable-bev-all-frontiers"
+output_parent_dir: "results"
+scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
+scene_data_path: "/mnt/data/hm3d"
+test_data_dir: "data/goat_bench/val_unseen/content/"
+
+concept_graph_config_path: "cfg/concept_graph_default.yaml"
+
+# major settings
+choose_every_step: true  # whether to query vlm at each step, or only after arriving at the navigation target
+egocentric_views: true  # whether to add egocentric views when prompting vlm
+prefiltering: true  # whether to use prefiltering (you in fact cannot turn this off, since otherwise it will exceed the context length limit)
+top_k_categories: 10  # keep the top k relevant categories during prefiltering
+use_self_refine: true  # whether to use self-refine for snapshot choices on description tasks
+
+# about detection model
+yolo_model_name: yolov8x-world.pt
+sam_model_name: sam_l.pt
+class_set: scannet200  # use the 200-class set for yolo-world detector
+
+# about snapshots clustering
+min_detection: 1
+
+# camera, image
+camera_height: 1.5
+camera_tilt_deg: -30
+img_width: 1280
+img_height: 1280
+hfov: 120
+
+# about goatbench evaluation
+success_distance: 1.0  # the distance threshold for a successful navigation
+clear_up_memory_every_subtask: false
+use_full_obj_list: false
+
+# whether to save visualization (which is slow)
+save_visualization: false
+save_vlm_inputs: false
+
+# the image size for prompting gpt-4o
+prompt_h: 360
+prompt_w: 360
+
+# navigation
+init_clearance: 0.3
+max_step_room_size_ratio: 2
+extra_view_phase_1: 2  # the number of extra views
+extra_view_angle_deg_phase_1: 60  # the angle between each extra view
+extra_view_phase_2: 6
+extra_view_angle_deg_phase_2: 40
+
+# about tsdf, depth map, and frontier updates
+explored_depth: 1.7
+tsdf_grid_size: 0.05
+# Planning remains at 5 cm.  The VLM BEV is cropped and rasterized separately;
+# it must not inherit the whole TSDF volume's blank margin.
+tsdf_bev_render_resolution: 0.05
+tsdf_bev_min_object_detections: 2
+tsdf_bev_trajectory_arrow_stride: 4
+tsdf_bev_max_labeled_instances: 8  # named high-confidence semantic context for the VLM
+tsdf_bev_fill_irrelevant_instances: false  # true: use stable non-relevant instances to fill unused label slots
+tsdf_bev_show_irrelevant_object_outlines: false  # optionally retain unlabeled gray outlines for non-selected instances
+tsdf_bev_crop_padding_m: 1.5
+tsdf_bev_min_crop_size_m: 6.0
+# ConceptGraph's raw 3D OBB is only used as a validation hypothesis.  The
+# decision BEV renders a compact semantic anchor after these metric checks;
+# invalid/oversized boxes and boxes crossing executed paths are omitted.
+tsdf_bev_semantic_max_footprint_area_m2: 6.0
+tsdf_bev_semantic_max_extent_m: 4.0
+tsdf_bev_semantic_support_radius_m: 0.40
+tsdf_bev_semantic_shape_dilation_m: 0.10
+# Generate the two structured BEVs before every high-level decision and attach
+# them to the VLM prompt.  F1..Fn are SCOPE-score ranked but all valid
+# frontiers are presented when this value is 0 (the intended experiment).
+structured_bev_for_vlm: true
+structured_bev_max_frontiers: 0  # 0: all active frontiers; positive: legacy compatibility cap
+structured_bev_fill_context_instances: true  # label stable context objects when target class is not yet observed
+margin_w_ratio: 0.25
+margin_h_ratio: 0.6
+planner:
+  # All frontier thresholds below are physical quantities.  The legacy pixel
+  # fields remain as a fallback for old configs, but are not used here.
+  frontier_neighbor_radius_m: 0.10
+  frontier_area_unknown_fraction_min: 1.00
+  frontier_area_unknown_fraction_max: 1.00
+  frontier_edge_unknown_fraction_min: 0.50
+  frontier_edge_unknown_fraction_max: 0.75
+  frontier_cluster_eps_m: 0.10
+  min_frontier_area_m2: 0.20
+  eps: 1
+  max_dist_from_cur_phase_1: 1  # when the target object is not found, explore the frontiers with this step length
+  max_dist_from_cur_phase_2: 1  # when the target object is found, go to the target object with this step length
+  final_observe_distance: 1.5  # in phase 2, find a place that is this far from the target object to observe it
+  surrounding_explored_radius: 0.7
+
+  # about frontier selection
+  frontier_edge_area_min: 4
+  frontier_edge_area_max: 6
+  frontier_area_min: 8
+  frontier_area_max: 9
+  min_frontier_area: 20  # the frontier should have at least this many pixels
+  max_frontier_angle_range_deg: 150  # the angle spanned by the pixels in a frontier should not be larger than this
+  region_equal_threshold: 0.95
+
+# about scene graph construction
+scene_graph:
+  confidence: 0.003
+  nms_threshold: 0.1
+  iou_threshold: 0.5
+  obj_include_dist: 3.5
+  target_obj_iou_threshold: 0.6
