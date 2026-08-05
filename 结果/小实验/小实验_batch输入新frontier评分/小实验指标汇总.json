@@ -1,0 +1,71 @@
+{
+  "小实验": "batch 输入新 frontier 评分",
+  "对应分支": "feat/batch-frontier-potential-scoring",
+  "核心代码ref": "dbbab92",
+  "说明": "把 frontier potential scoring 从逐 frontier 请求改成 batch 请求。这里不是 readable-BEV 主方法本身。",
+  "核心指标": [
+    {
+      "结果": "旧 baseline_ceping split 1",
+      "分支": "baseline/fix-tsdf05cm",
+      "split": 1,
+      "任务数": 278,
+      "Snapshot success (%)": 20.50,
+      "Distance success (%)": 40.65,
+      "Snapshot SPL (%)": 17.13,
+      "Distance SPL (%)": 29.11,
+      "耗时": "15:39:34",
+      "VLM成功请求": 4059
+    },
+    {
+      "结果": "当前 baseline/fix split 1",
+      "分支": "baseline/fix-tsdf05cm",
+      "split": 1,
+      "任务数": 278,
+      "Snapshot success (%)": 20.50,
+      "Distance success (%)": 44.24,
+      "Snapshot SPL (%)": 16.29,
+      "Distance SPL (%)": 31.66,
+      "耗时": "14:02:41",
+      "VLM成功请求": 4422
+    },
+    {
+      "结果": "batch reason1",
+      "分支": "feat/batch-frontier-potential-scoring",
+      "split": 1,
+      "任务数": 278,
+      "Snapshot success (%)": 19.78,
+      "Distance success (%)": 40.65,
+      "Snapshot SPL (%)": 15.34,
+      "Distance SPL (%)": 28.41,
+      "耗时": "17:21:19",
+      "VLM成功请求": 4841,
+      "batch_stage": {
+        "batch_stages": 1285,
+        "成功stages": 161,
+        "失败stages": 1124,
+        "total_frontier_items": 2098,
+        "成功stage平均耗时": "9.135 s"
+      }
+    },
+    {
+      "结果": "batch reason2",
+      "分支": "feat/batch-frontier-potential-scoring",
+      "split": 1,
+      "任务数": 278,
+      "Snapshot success (%)": 17.99,
+      "Distance success (%)": 40.65,
+      "Snapshot SPL (%)": 15.54,
+      "Distance SPL (%)": 28.88,
+      "耗时": "14:45:41",
+      "VLM成功请求": 3511,
+      "batch_stage": {
+        "batch_stages": 618,
+        "成功stages": 614,
+        "失败stages": 4,
+        "total_frontier_items": 983,
+        "成功stage平均耗时": "6.683 s"
+      }
+    }
+  ],
+  "结论": "batch-local frontier ID 修复后流程稳定，也减少了一些 VLM 成功请求，但导航成功率没有提升，因此作为小实验/效率探索保留，不作为主方法。"
+}

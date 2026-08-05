@@ -1,6 +1,6 @@
 # JSON 和 PKL 结果文件说明
 
-这个文件说明 `结果/大实验/*/原始结果文件/` 下面的文件各自保存了什么。
+这个文件说明 `结果/大结果/*/原始结果文件/` 和 `结果/小实验/*/原始结果文件/` 下面的文件各自保存了什么。
 
 ## 文件类型
 
@@ -23,7 +23,7 @@
 
 ## 文件名里的 split
 
-文件名结尾的 `0.0_1.0_1`、`0.0_1.0_2`、`0.0_1.0_3` 分别对应 GOAT-Bench split 1/2/3。
+文件名结尾的 `0.0_1.0_1`、`0.0_1.0_2`、`0.0_1.0_3` 分别对应 GOAT-Bench split 1/2/3。大结果保留 split 1/2/3；当前已整理的小实验只跑了 split 1，所以一般只会看到 `0.0_1.0_1`。
 
 例如：
 
@@ -43,7 +43,7 @@ success_by_distance_0.0_1.0_3.pkl  -> split 3 distance success
 import pickle
 import numpy as np
 
-path = "结果/大实验/02_可读BEV_metric-frontier-readable-bev/原始结果文件/success_by_distance_0.0_1.0_1.pkl"
+path = "结果/大结果/02_可读BEV_metric-frontier-readable-bev/原始结果文件/success_by_distance_0.0_1.0_1.pkl"
 
 with open(path, "rb") as f:
     data = pickle.load(f)
@@ -84,4 +84,3 @@ print(score)
 - 压缩包。
 
 如果以后要公开原始图片，建议单独放到 Hugging Face Dataset 或 GitHub Release，不要塞进代码仓库。
-
