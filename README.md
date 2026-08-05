@@ -17,6 +17,45 @@
 
 ---
 
+## Branch Guide / 分支说明
+
+This fork keeps several experiment branches for GOAT-Bench navigation ablations.
+The current logical branch map is:
+
+```text
+main
++-- baseline/fix-tsdf05cm
+|   `-- feat/batch-frontier-potential-scoring
+`-- feat/structured-bev-tsdf05cm
+    `-- feat/metric-frontier-readable-bev
+        `-- feat/semantic-bev-dedupe-smoothing
+```
+
+| Branch | Role | When to use it |
+| --- | --- | --- |
+| `main` | Original SCOPE baseline. It keeps the paper-style TSDF / scene graph / snapshot / frontier pipeline and the historical 10 cm TSDF GOAT-Bench setup. | Use as the reference implementation and for comparisons against the unmodified high-level VLM input. |
+| `baseline/fix-tsdf05cm` | Stable 5 cm baseline line. It fixes stale snapshot object IDs, normalizes frontier handling for 5 cm TSDF, and records per-call VLM timing without adding structured BEV inputs. | Use as the matched non-BEV control for 5 cm TSDF experiments. |
+| `feat/batch-frontier-potential-scoring` | Builds on `baseline/fix-tsdf05cm`. It batches newly observed frontier-potential scoring into one VLM request per step, then maps local `F_i` labels back to planner frontier IDs. Final snapshot/frontier decision logic stays baseline-compatible. | Use to measure latency and behavior of batched frontier scoring versus serial frontier-potential calls. |
+| `feat/structured-bev-tsdf05cm` | First structured-BEV decision branch. It adds semantic BEV and Gaussian frontier-evidence BEV images to the high-level VLM prompt, uses structured JSON decisions, and keeps SCOPE TSDF planning/execution underneath. Early runs used top-3 frontier candidates. | Use to isolate the effect of adding HSGM-style structured BEV context on top of 5 cm TSDF. |
+| `feat/metric-frontier-readable-bev` | Main readable-BEV branch. It keeps 5 cm TSDF, changes frontier thresholds to metric units, makes semantic/Gaussian BEVs share the same crop and coordinates, validates semantic footprints against TSDF support, and exposes all valid frontiers to the VLM when `structured_bev_max_frontiers: 0`. | Use as the main all-frontiers structured-BEV experiment branch. Existing reports show higher success than `main`, `baseline/fix-tsdf05cm`, and the top-3 structured-BEV branch on the matched 278-task GOAT-Bench split. |
+| `feat/semantic-bev-dedupe-smoothing` | Readability follow-up to `feat/metric-frontier-readable-bev`. It deduplicates nearby same-class ConceptGraph tracks and adds display-only smoothing to TSDF-supported semantic footprints. It does not replace the planner or change the source TSDF/object mask. | Use when inspecting or rerunning the readable-BEV method with cleaner semantic instance rendering. |
+
+Observed server worktrees on 2026-08-05:
+
+| Path | Checked-out branch |
+| --- | --- |
+| `/mnt/data/SCOPE` | `baseline/fix-tsdf05cm` |
+| `/mnt/data/SCOPE_batch_frontier_potential` | `feat/batch-frontier-potential-scoring` |
+| `/mnt/data/SCOPE_metric_frontier_bev` | `feat/semantic-bev-dedupe-smoothing` |
+| `/mnt/data/SCOPE_run` | legacy `feat/semantic-bev-comparison` |
+| `/mnt/data/SCOPE_run_goal_bev` | legacy `feat/goat-structured-bev-vlm` |
+
+Legacy branches kept in the remote include `feat/semantic-bev-comparison`
+(early semantic/Gaussian BEV visualization comparison), `feat/semantic-bev-simple-labels`
+(simplified BEV labels), and `feat/goat-structured-bev-vlm` (older configurable
+structured-BEV prompt branch). They are useful for history, but the maintained
+experiment line is the branch map above.
+
 
 ## Installation
 
