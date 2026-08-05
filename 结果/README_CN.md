@@ -16,7 +16,7 @@ feat/metric-frontier-readable-bev
 
 | 路径 | 内容 |
 | --- | --- |
-| `大实验结果总览.md` | 大实验的中文结论、split 1/2/3 指标、三 split 合并指标。 |
+| `对比结果.md` | 大实验的中文结论、split 1/2/3 指标、三 split 合并指标。 |
 | `大实验指标汇总.csv` | 只包含大实验两组方法的核心指标表，方便直接用表格软件打开。 |
 | `大实验指标汇总.json` | 和 CSV 对应的结构化 JSON 版本。 |
 | `JSON和PKL结果文件说明.md` | 说明 `json/pkl/yaml/log` 各自保存了什么，怎么读。 |
@@ -49,4 +49,3 @@ feat/metric-frontier-readable-bev
 - `*.csv`、`*.json` 汇总表：已经整理好的核心结果。
 
 这里没有放原始图片、视频、模型权重或压缩包。
-
