@@ -36,6 +36,19 @@
 | `artifacts/dedupe_check_00803/` | `feat/semantic-bev-dedupe-smoothing` | `/mnt/data/SCOPE_metric_frontier_bev/results/metric-frontier-readable-bev-dedupe-check-00803` | `00803` 单场景检查 | dedupe/smoothing 单场景对照 |
 | `artifacts/main_experience_deleted_archive/` | `main` | `/mnt/data/SCOPE/results/main_experience_deleted_archive` | 删除归档 README | 原始 main 结果已删除，只能保留文字归档指标 |
 
+### 当前 A-EQA / EXPRESS-Bench 分支
+
+下表记录 2026-08 新增的 benchmark 适配分支。结果保存在 `/data1/jiangdakun/scope_results/`；每个分支的具体配置和完整对比结论见 `docs/benchmark_evaluations/`。
+
+| 分支 | 基底 | 用途 | 对应结果目录 |
+| --- | --- | --- | --- |
+| `feat/aeqa-baseline` | `baseline/fix-tsdf05cm` | A-EQA 的 5 cm SCOPE baseline runner | `aeqa_baseline_5cm_184/` |
+| `feat/aeqa-semantic-bev-dedupe-smoothing` | `feat/semantic-bev-dedupe-smoothing` | A-EQA 的 semantic-BEV dedupe+smoothing runner；将 BEV 作为额外 VLM 图像上下文 | `aeqa_semantic_bev_dedupe_smoothing_5cm_184_gpu0_ollama/` |
+| `feat/express-baseline` | `baseline/fix-tsdf05cm` | EXPRESS-Bench 的 5 cm SCOPE baseline runner | `express_baseline_5cm/` |
+| `feat/express-semantic-bev-dedupe-smoothing` | `feat/semantic-bev-dedupe-smoothing` | EXPRESS-Bench 的 semantic-BEV dedupe+smoothing runner；将 BEV 作为额外 VLM 图像上下文 | `express_semantic_bev_dedupe_smoothing_5cm/` |
+
+这四个分支的总览见 `docs/benchmark_evaluations/SCOPE_AEQA_EXPRESS_BASELINE_VS_DEDUPE_SUMMARY_2026-08-22_CN.md`；A-EQA 与 EXPRESS 的详细对比报告也保存在同目录。
+
 ## 3. 怎么读 pkl
 
 每个 `*_by_snapshot_*.pkl`、`*_by_distance_*.pkl` 是 task 级字典或列表，均值乘 100 就是百分比指标。
