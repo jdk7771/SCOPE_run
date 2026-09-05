@@ -22,11 +22,30 @@ def format_content(image, question_text, question_image_path):
         png_bytes = output.getvalue()
     frontier_image = base64.b64encode(png_bytes).decode("utf-8")
 
-    # Read and encode the question image
+    # Read and encode the question image. This is byte-for-byte the original
+    # SCOPE repo's code: the GOAT-Bench dataset's goal image is sent at its
+    # native resolution (observed: 1280x1280 RGBA, ~1.5MB raw), uncapped.
+    # The original authors hit no issue because they call the real OpenAI
+    # API directly, which tolerates this; some OpenAI-compatible relays
+    # enforce a much stricter payload limit and 503 on it (observed:
+    # ainb.space fails around ~2MB total request size). VLM_CAP_GOAL_IMAGE=1
+    # opts into downsizing this image to match the frontier image's scale
+    # for such a relay; default is unset, reproducing the original
+    # unmodified behavior exactly.
     question_image = None
     if question_image_path is not None and os.path.exists(question_image_path):
         try:
             question_img_pil = Image.open(question_image_path)
+            if os.environ.get("VLM_CAP_GOAL_IMAGE") == "1":
+                question_img_pil = question_img_pil.convert("RGB")
+                target_max_side = max(img_pil.size)
+                if max(question_img_pil.size) > target_max_side:
+                    scale = target_max_side / max(question_img_pil.size)
+                    new_size = (
+                        max(1, round(question_img_pil.size[0] * scale)),
+                        max(1, round(question_img_pil.size[1] * scale)),
+                    )
+                    question_img_pil = question_img_pil.resize(new_size, Image.BILINEAR)
             with io.BytesIO() as output:
                 question_img_pil.save(output, format="PNG")
                 question_png_bytes = output.getvalue()
@@ -104,13 +123,30 @@ def get_potential_estimation(metadata, image) -> Optional[str]:
     while True:  # Keep trying indefinitely for rate limits
         attempt = rate_limit_retries + other_error_retries + 1
         request_start = time.perf_counter()
+        if os.environ.get("VLM_DEBUG_DUMP_REQUEST") and attempt == 1:
+            import json
+            dump_path = os.environ["VLM_DEBUG_DUMP_REQUEST"]
+            with open(dump_path, "w") as f:
+                json.dump(
+                    {
+                        "model": os.environ.get("VLM_MODEL_NAME", "qwen2.5vl:32b"),
+                        "messages": message_text,
+                        "temperature": 0.7,
+                        "max_tokens": int(os.environ.get("VLM_MAX_TOKENS", "4096")),
+                        "top_p": 0.95,
+                        "frequency_penalty": 0,
+                        "presence_penalty": 0,
+                    },
+                    f,
+                )
+            print(f"[VLM_DEBUG_DUMP_REQUEST] wrote real request to {dump_path} ({os.path.getsize(dump_path)} bytes)")
         try:
             completion = client.chat.completions.create(
                 # model="gpt-4o-2024-11-20",
-                model="gemma3:27b",
+                model=os.environ.get("VLM_MODEL_NAME", "qwen2.5vl:32b"),
                 messages=message_text,
                 temperature=0.7,
-                max_tokens=4096,
+                max_tokens=int(os.environ.get("VLM_MAX_TOKENS", "4096")),
                 top_p=0.95,
                 frequency_penalty=0,
                 presence_penalty=0,

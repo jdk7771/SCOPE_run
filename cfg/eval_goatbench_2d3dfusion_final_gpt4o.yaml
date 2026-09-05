@@ -1,6 +1,6 @@
 # General
 seed: 3407
-exp_name: "metric-frontier-readable-bev-all-frontiers"
+exp_name: "2d3dfusion-treatment-final-gpt4o-official"
 output_parent_dir: "results"
 scene_dataset_config_path: "data/hm3d_annotated_basis.scene_dataset_config.json"
 scene_data_path: "data/scene_datasets/hm3d"
@@ -91,13 +91,27 @@ structured_bev_fill_context_instances: true  # label stable context objects when
 # ahead of the frontier from the existing occupancy grid; semantic: reuses
 # the existing `explorability` VLM rating). No new VLM calls or prompt
 # fields are added either way.
-gaussian_foresight_enabled: false
+gaussian_foresight_enabled: true
 gaussian_foresight_min_sigma_perp_m: 0.25
 gaussian_foresight_max_sigma_perp_m: 1.2
 gaussian_foresight_max_range_m: 3.0
 gaussian_foresight_semantic_weight: 0.4  # 0=pure geometric foresight, 1=pure semantic
 gaussian_foresight_gain: 0.6  # weight *= (1 + gain * foresight)
-gaussian_foresight_max_sigma_fraction_of_crop: 0.35  # cap ellipse long axis to this fraction of the crop's shorter side
+gaussian_foresight_max_sigma_fraction_of_crop: 0.18
+gaussian_foresight_geometric_3d_weight: 0.5  # blend 2D+3D geometric signal, 0.5 = equal weight
+gaussian_foresight_3d_relevant_height_m: 2.2  # cap ellipse long axis to this fraction of the crop's shorter side
+# Semantic foresight 3D upgrade (module 3): reliability-gated blend of 3D
+# scene-graph novelty and the existing 2D explorability VLM rating. False
+# reproduces the explorability-only formula exactly.
+gaussian_foresight_semantic_3d_enabled: true
+# BEV visual prompt 3D upgrade (module 1): known/unknown rendered as a
+# coverage ratio over coverage_height_m instead of a column-collapsed
+# boolean. Shared by both the semantic BEV and the frontier Gaussian BEV.
+tsdf_bev_coverage_rendering_enabled: true
+tsdf_bev_coverage_height_m: 2.2
+# Semantic BEV object opacity/outline modulated by the same num_detections
+# reliability the semantic foresight term uses.
+tsdf_bev_reliability_rendering_enabled: true
 margin_w_ratio: 0.25
 margin_h_ratio: 0.6
 planner:
@@ -132,3 +146,4 @@ scene_graph:
   iou_threshold: 0.5
   obj_include_dist: 3.5
   target_obj_iou_threshold: 0.6
+gaussian_foresight_text_prompt_enabled: true

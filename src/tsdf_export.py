@@ -10,9 +10,28 @@ from scipy import ndimage
 import numpy as np
 
 
+_RELIABILITY_SATURATION_DETECTIONS = 5.0
+"""num_detections at which an object's identity is treated as fully
+trusted (reliability saturates at 1.0). Shared between the semantic
+foresight term (_frontier_semantic_novelty_3d) and the semantic-BEV object
+rendering (_draw_object_instances) so both read the same signal off the
+same scale -- not two independently-tuned thresholds."""
+
+
+_CANDIDATE_PALETTE = [
+    # Curated from tab20/tab20b, with every blue/pale-cyan entry dropped so no
+    # candidate colour is confusable with the pale-blue "unknown space" BEV
+    # background (224, 235, 250). Orange first since it reads best on both
+    # the green "explored" and grey "observed" backgrounds.
+    "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b",
+    "#e377c2", "#bcbd22", "#7f7f7f", "#c49c00",
+    "#f7b6d2", "#c5b0d5", "#98df8a", "#ff9896", "#8c6d31",
+]
+
+
 def _candidate_color(index):
-    """Use distinct stable colours for the first 20 VLM frontier labels."""
-    return plt.colormaps.get_cmap("tab20")((index - 1) % 20)
+    """Use distinct, background-safe colours for the first N VLM frontier labels."""
+    return _CANDIDATE_PALETTE[(index - 1) % len(_CANDIDATE_PALETTE)]
 
 
 def _object_footprint_voxels(planner, obj):
@@ -332,8 +351,18 @@ def _semantic_display_field(shape_mask, voxel_size, smoothing_m):
     return smoothed, 0.5
 
 
-def _draw_object_instances(ax, planner, instances, scale, crop_origin, display_smoothing_m=0.0):
-    """Draw TSDF-supported semantic regions and their concise class labels."""
+def _draw_object_instances(
+    ax, planner, instances, scale, crop_origin, display_smoothing_m=0.0,
+    reliability_rendering_enabled=False,
+):
+    """Draw TSDF-supported semantic regions and their concise class labels.
+
+    When ``reliability_rendering_enabled`` is False (default), every
+    instance renders at the original fixed alpha/solid outline -- this
+    reproduces prior behaviour exactly. When True, fill opacity and outline
+    style are modulated by the same ``num_detections``-based reliability
+    the semantic foresight term uses.
+    """
     if not instances:
         return 0
 
@@ -354,13 +383,28 @@ def _draw_object_instances(ax, planner, instances, scale, crop_origin, display_s
         rows = np.arange(shape_mask.shape[0]) + shape_origin[0]
         cols = np.arange(shape_mask.shape[1]) + shape_origin[1]
         upper_level = max(float(np.max(display_field)) + 1e-3, contour_level + 1e-3)
+        if reliability_rendering_enabled:
+            # Reliability reuses the same signal (and saturation scale) the
+            # semantic foresight term reads off num_detections: a barely-
+            # passed object (min_object_detections floor) renders
+            # faint/dashed, a well-established one solid -- same number,
+            # one more outlet, not a new mechanism.
+            reliability = min(
+                float(instance.get("num_detections", 0)) / _RELIABILITY_SATURATION_DETECTIONS, 1.0,
+            )
+            fill_alpha = 0.25 + 0.35 * reliability
+            edge_style = "solid" if reliability >= 0.6 else "dashed"
+        else:
+            fill_alpha = 0.48
+            edge_style = "solid"
         ax.contourf(
             cols * scale, rows * scale, display_field,
-            levels=[contour_level, upper_level], colors=[color], alpha=0.48, zorder=5,
+            levels=[contour_level, upper_level], colors=[color], alpha=fill_alpha, zorder=5,
         )
         ax.contour(
             cols * scale, rows * scale, display_field,
-            levels=[contour_level], colors=["#333333"], linewidths=0.70, zorder=6,
+            levels=[contour_level], colors=["#333333"], linewidths=0.70,
+            linestyles=[edge_style], zorder=6,
         )
         offset = label_offsets[count % len(label_offsets)]
         label_xy = center + np.asarray(offset) * label_step
@@ -447,8 +491,20 @@ def _draw_frontier_candidates(ax, frontiers, scale, crop_origin):
         )
 
 
-def _build_planner_bev(planner, display_height):
-    """Build a BEV that distinguishes unknown space from observed map state."""
+def _build_planner_bev(planner, display_height, coverage_rendering_enabled=False, coverage_height_m=2.2):
+    """Build a BEV that distinguishes unknown space from observed map state.
+
+    When ``coverage_rendering_enabled`` is False (default), this reproduces
+    the original column-collapsed boolean exactly (``np.any(..., axis=2)``):
+    a column counts as "explored"/"observed" the moment any single height
+    in it was seen once. When True, "explored"/"observed" become coverage
+    *ratios* over the relevant-height band (the same band and cap used by
+    the 3D geometric foresight signal, ``_frontier_unknown_volume_3d_ahead``)
+    instead of that boolean -- a column whose floor is visible but whose
+    cabinet-top above it was never actually in the camera's frame renders
+    as partially, not fully, shaded, proportional to how much of it has
+    actually been seen.
+    """
     obstacle = planner._obstacle_vol_cpu
     if obstacle is None:
         obstacle = np.zeros_like(planner._tsdf_vol_cpu, dtype=bool)
@@ -458,22 +514,35 @@ def _build_planner_bev(planner, display_height):
         planner._tsdf_vol_cpu[:, :, height_index] > 0,
         planner._tsdf_vol_cpu[:, :, 0] < 0,
     )
-    explored = np.any(planner._explore_vol_cpu > 0, axis=2)
-    observed = np.any(planner._weight_vol_cpu > 0, axis=2)
     obstacle_slice = obstacle[:, :, height_index]
+
+    if coverage_rendering_enabled:
+        n_z = planner._explore_vol_cpu.shape[2]
+        height_voxels = max(1, int(round(coverage_height_m / planner._voxel_size)))
+        z_cap = min(n_z, planner.min_height_voxel + height_voxels)
+        explored_coverage = np.mean(planner._explore_vol_cpu[:, :, :z_cap] > 0, axis=2)
+        observed_coverage = np.mean(planner._weight_vol_cpu[:, :, :z_cap] > 0, axis=2)
+    else:
+        explored_coverage = np.any(planner._explore_vol_cpu > 0, axis=2).astype(float)
+        observed_coverage = np.any(planner._weight_vol_cpu > 0, axis=2).astype(float)
 
     # Pale blue = genuinely unobserved/unknown.  It replaces the old white
     # canvas whose meaning was absent from both the image and VLM prompt.
-    bev = np.full((*unoccupied.shape, 3), (224, 235, 250), dtype=np.uint8)
-    bev[observed & ~unoccupied] = (230, 230, 230)
-    bev[unoccupied] = (200, 200, 200)
-    bev[explored & unoccupied] = (194, 246, 198)
+    unknown_rgb = np.array((224, 235, 250), dtype=float)
+    observed_rgb = np.array((230, 230, 230), dtype=float)
+    unoccupied_rgb = np.array((200, 200, 200), dtype=float)
+    explored_rgb = np.array((194, 246, 198), dtype=float)
+
+    bev = unknown_rgb + observed_coverage[..., None] * (observed_rgb - unknown_rgb)
+    unoccupied_shade = unoccupied_rgb + explored_coverage[..., None] * (explored_rgb - unoccupied_rgb)
+    bev[unoccupied] = unoccupied_shade[unoccupied]
     # This is a VLM display map, not the collision map.  Do not visually
     # inflate obstacles by 0.3 m: on a 5 cm grid it produced thick black walls
     # that swallowed corridor and object context.  Collision inflation remains
     # untouched inside the planner itself.
     bev[obstacle_slice] = (0, 0, 0)
-    support = observed | explored | unoccupied | obstacle_slice
+    bev = np.clip(bev, 0, 255).astype(np.uint8)
+    support = (observed_coverage > 0) | (explored_coverage > 0) | unoccupied | obstacle_slice
     return bev, unoccupied, support
 
 
@@ -544,17 +613,294 @@ def _prediction_weight_and_sigma(scores, min_sigma_m, max_sigma_m):
     return float(weight), float(sigma_m)
 
 
+def _frontier_unknown_volume_ahead(
+    planner, position_vox, direction_xy, max_range_m, cone_half_angle_deg=35.0,
+):
+    """Fraction of unexplored cells inside a sector ahead of a frontier.
+
+    Zero extra VLM calls: this only reads the planner's existing occupancy
+    bookkeeping (``planner.unexplored``), which is already maintained every
+    step for frontier detection. This is the single-height-slice (2D)
+    version, validated full-scale (see ``feat/foresight-anisotropic-gaussian``,
+    38.85/61.87/29.12/41.88 on split1) -- kept byte-for-byte unchanged so the
+    ``geometric_3d_weight=0`` fallback path reproduces that exact result.
+    """
+    unexplored = getattr(planner, "unexplored", None)
+    if unexplored is None:
+        return 0.0
+    direction_xy = np.asarray(direction_xy, dtype=float)
+    norm = np.linalg.norm(direction_xy)
+    if norm < 1e-6:
+        return 0.0
+    direction_xy = direction_xy / norm
+
+    max_range_vox = max(1.0, float(max_range_m) / planner._voxel_size)
+    x0 = int(np.clip(position_vox[0] - max_range_vox, 0, unexplored.shape[0] - 1))
+    x1 = int(np.clip(position_vox[0] + max_range_vox, 0, unexplored.shape[0] - 1)) + 1
+    y0 = int(np.clip(position_vox[1] - max_range_vox, 0, unexplored.shape[1] - 1))
+    y1 = int(np.clip(position_vox[1] + max_range_vox, 0, unexplored.shape[1] - 1)) + 1
+    if x1 <= x0 or y1 <= y0:
+        return 0.0
+
+    xs, ys = np.mgrid[x0:x1, y0:y1]
+    dx = xs - position_vox[0]
+    dy = ys - position_vox[1]
+    dist = np.sqrt(dx**2 + dy**2)
+    within_range = (dist > 0) & (dist <= max_range_vox)
+    cos_sim = (dx * direction_xy[0] + dy * direction_xy[1]) / np.maximum(dist, 1e-6)
+    within_cone = cos_sim >= np.cos(np.deg2rad(cone_half_angle_deg))
+    sector = within_range & within_cone
+    sector_size = int(np.count_nonzero(sector))
+    if sector_size == 0:
+        return 0.0
+    unknown_in_sector = int(np.count_nonzero(unexplored[x0:x1, y0:y1][sector]))
+    return unknown_in_sector / sector_size
+
+
+def _sector_xy_mask(planner, shape2d, position_vox, direction_xy, max_range_m, cone_half_angle_deg):
+    """Shared 2D sector geometry (range + cone ahead of a frontier), ported
+    unchanged from ``feat/3d-tsdf-foresight``. Returns ``(x0, x1, y0, y1,
+    sector_mask)`` or ``None`` if the direction is degenerate."""
+    direction_xy = np.asarray(direction_xy, dtype=float)
+    norm = np.linalg.norm(direction_xy)
+    if norm < 1e-6:
+        return None
+    direction_xy = direction_xy / norm
+
+    max_range_vox = max(1.0, float(max_range_m) / planner._voxel_size)
+    x0 = int(np.clip(position_vox[0] - max_range_vox, 0, shape2d[0] - 1))
+    x1 = int(np.clip(position_vox[0] + max_range_vox, 0, shape2d[0] - 1)) + 1
+    y0 = int(np.clip(position_vox[1] - max_range_vox, 0, shape2d[1] - 1))
+    y1 = int(np.clip(position_vox[1] + max_range_vox, 0, shape2d[1] - 1)) + 1
+    if x1 <= x0 or y1 <= y0:
+        return None
+
+    xs, ys = np.mgrid[x0:x1, y0:y1]
+    dx = xs - position_vox[0]
+    dy = ys - position_vox[1]
+    dist = np.sqrt(dx**2 + dy**2)
+    within_range = (dist > 0) & (dist <= max_range_vox)
+    cos_sim = (dx * direction_xy[0] + dy * direction_xy[1]) / np.maximum(dist, 1e-6)
+    within_cone = cos_sim >= np.cos(np.deg2rad(cone_half_angle_deg))
+    sector = within_range & within_cone
+    return x0, x1, y0, y1, sector
+
+
+def _frontier_unknown_volume_3d_ahead(
+    planner, position_vox, direction_xy, max_range_m, cone_half_angle_deg=35.0,
+    relevant_height_m=2.2,
+):
+    """3D-volume counterpart of ``_frontier_unknown_volume_ahead``: fraction
+    of unexplored *voxels* (not just one height slice) in the same sector,
+    read from ``planner._weight_vol_cpu`` (already-maintained TSDF weight
+    volume, zero extra sensing). Height-capped at ``relevant_height_m``
+    above the real floor (not z=0 -- z=0 sits ``min_height_voxel`` cells
+    below the floor pad) to avoid diluting the signal with near-constant
+    unobserved ceiling space -- see ``feat/3d-tsdf-foresight``'s
+    ``_frontier_sector_voxels`` docstring for the full derivation and the
+    ~40% dilution measurement this cap fixes. Ported and simplified (ratio
+    only, no voxel-set) since this fusion only needs a scalar, not the
+    voxel-set greedy-coverage machinery from that branch.
+    """
+    weight_vol = getattr(planner, "_weight_vol_cpu", None)
+    if weight_vol is None:
+        return 0.0
+    geom = _sector_xy_mask(
+        planner, weight_vol.shape[:2], position_vox, direction_xy,
+        max_range_m, cone_half_angle_deg,
+    )
+    if geom is None:
+        return 0.0
+    x0, x1, y0, y1, sector = geom
+    n_z = weight_vol.shape[2]
+    if relevant_height_m is not None:
+        height_voxels = max(1, int(round(relevant_height_m / planner._voxel_size)))
+        n_z = min(n_z, planner.min_height_voxel + height_voxels)
+    sector_size = int(np.count_nonzero(sector)) * n_z
+    if sector_size == 0:
+        return 0.0
+    column_unknown = weight_vol[x0:x1, y0:y1, :n_z] == 0
+    unknown_mask = column_unknown & sector[:, :, None]
+    return float(np.count_nonzero(unknown_mask)) / sector_size
+
+
+def _frontier_semantic_novelty_3d(
+    planner, objects, position_vox, direction_xy, max_range_m, cone_half_angle_deg=35.0,
+    novelty_saturation_classes=4.0,
+):
+    """3D scene-graph counterpart of the geometric signal: how semantically
+    "new" the space ahead of a frontier is, and how much that judgment
+    should be trusted.
+
+    Both quantities come from ``objects`` (the existing ConceptGraph scene
+    graph -- no new detection, no new VLM call). An object counts as
+    "already known" here if its tracked centre falls in the same sector
+    used by the geometric signal. ``novelty_3d`` decreases with the number
+    of *distinct* classes already known nearby (repeated instances of the
+    same class count once, so this is "how much is already known", not raw
+    object count). ``reliability`` is the mean, saturating fraction of
+    ``num_detections`` among those objects -- 0.0 when no object claims
+    this sector at all, which the caller uses to fall back to the 2D VLM
+    ``explorability`` rating rather than trusting a claim built on
+    weak/absent evidence. Occupancy state (the geometric signal) doesn't
+    need this gating -- "this voxel was never observed" is a directly
+    measured fact regardless of how much data exists elsewhere; "these are
+    the objects here" is inferred from detections that can be sparse or
+    wrong, which is why only this term is confidence-gated.
+
+    Returns (novelty_3d, reliability), both in [0, 1].
+    """
+    if not objects:
+        return 1.0, 0.0
+    direction_xy = np.asarray(direction_xy, dtype=float)
+    norm = np.linalg.norm(direction_xy)
+    if norm < 1e-6:
+        return 1.0, 0.0
+    direction_xy = direction_xy / norm
+    max_range_vox = max(1.0, float(max_range_m) / planner._voxel_size)
+    cos_thresh = np.cos(np.deg2rad(cone_half_angle_deg))
+    position_vox = np.asarray(position_vox, dtype=float)[:2]
+
+    matched_classes = set()
+    detection_fracs = []
+    for obj in objects.values():
+        anchor = _object_anchor_voxel(planner, obj)
+        if anchor is None:
+            continue
+        delta = anchor - position_vox
+        dist = float(np.linalg.norm(delta))
+        if dist <= 0.0 or dist > max_range_vox:
+            continue
+        cos_sim = float(np.dot(delta, direction_xy) / dist)
+        if cos_sim < cos_thresh:
+            continue
+        matched_classes.add(obj.get("class_name"))
+        num_detections = float(obj.get("num_detections", 0))
+        detection_fracs.append(
+            min(num_detections / _RELIABILITY_SATURATION_DETECTIONS, 1.0)
+        )
+
+    if not detection_fracs:
+        return 1.0, 0.0
+    known_amount = len(matched_classes)
+    novelty_3d = float(np.clip(1.0 - known_amount / novelty_saturation_classes, 0.0, 1.0))
+    reliability = float(np.mean(detection_fracs))
+    return novelty_3d, reliability
+
+
+def _foresight_anisotropic_params(
+    planner, frontier_position, orientation_xy, region_mask, scores, agent_voxel,
+    min_sigma_par_m, max_sigma_par_m, min_sigma_perp_m, max_sigma_perp_m,
+    max_foresight_range_m=3.0, semantic_foresight_weight=0.4, foresight_gain=0.6,
+    geometric_3d_weight=0.0, foresight_3d_relevant_height_m=2.2, objects=None,
+):
+    """Frontier-conditioned anisotropic Gaussian: direction-aligned covariance
+    whose long axis is modulated by an exploration "foresight" score.
+
+    Foresight combines up to three zero/near-zero-extra-cost signals:
+      - geometric (2D): fraction of unexplored space in a *single
+        height-slice* sector ahead of the frontier -- the original,
+        full-scale-validated signal (``feat/foresight-anisotropic-gaussian``).
+      - geometric (3D, new): fraction of unexplored *voxels* (full height
+        column, capped) in the same sector, from ``feat/3d-tsdf-foresight``.
+        A full 2D->3D *replacement* (that branch) showed a genuine but
+        lopsided trade-off on the full 278-task split1 -- worse on the two
+        Snapshot metrics, better on the two Distance metrics -- suggesting
+        the two geometric signals capture partially different, complementary
+        information rather than one strictly subsuming the other. This
+        fuses them (``geometric_3d_weight`` blends 2D and 3D) instead of
+        picking one, so neither validated signal is thrown away.
+        ``geometric_3d_weight=0.0`` (default) reproduces the original 2D-only
+        formula exactly -- this fusion is strictly additive/optional.
+      - semantic: reliability-gated blend of two sources -- 3D scene-graph
+        novelty (``_frontier_semantic_novelty_3d``: fewer distinct known
+        classes nearby -> higher novelty) and the existing ``explorability``
+        VLM rating (no new VLM call, no prompt change). The blend weight is
+        the 3D signal's own ``reliability`` (mean saturating fraction of
+        ``num_detections`` among the objects it's based on) -- when the
+        scene graph has no or weak evidence in this direction, this
+        collapses to the original explorability-only formula; it only
+        leans on the 3D estimate once there's enough evidence to trust it.
+
+    Returns (weight, sigma_parallel_m, sigma_perp_m, e_parallel, e_perp).
+    """
+    base_weight, _ = _prediction_weight_and_sigma(scores, min_sigma_par_m, max_sigma_par_m)
+
+    e_parallel = np.asarray(orientation_xy, dtype=float)
+    norm = np.linalg.norm(e_parallel)
+    e_parallel = e_parallel / norm if norm > 1e-6 else np.array([1.0, 0.0])
+    e_perp = np.array([-e_parallel[1], e_parallel[0]])
+
+    geom_foresight_2d = _frontier_unknown_volume_ahead(
+        planner, frontier_position, e_parallel, max_foresight_range_m,
+    )
+    if geometric_3d_weight > 0.0:
+        geom_foresight_3d = _frontier_unknown_volume_3d_ahead(
+            planner, frontier_position, e_parallel, max_foresight_range_m,
+            relevant_height_m=foresight_3d_relevant_height_m,
+        )
+        geom_foresight = (
+            (1.0 - geometric_3d_weight) * geom_foresight_2d
+            + geometric_3d_weight * geom_foresight_3d
+        )
+    else:
+        geom_foresight = geom_foresight_2d
+    explorability_2d = float(np.clip(scores.get("explorability", 3.0), 1.0, 5.0) - 1.0) / 4.0
+    novelty_3d, reliability = _frontier_semantic_novelty_3d(
+        planner, objects, frontier_position, e_parallel, max_foresight_range_m,
+    )
+    semantic_foresight = reliability * novelty_3d + (1.0 - reliability) * explorability_2d
+    foresight = (
+        (1.0 - semantic_foresight_weight) * geom_foresight
+        + semantic_foresight_weight * semantic_foresight
+    )
+
+    weight = base_weight * (1.0 + foresight_gain * foresight)
+    sigma_parallel_m = min_sigma_par_m + foresight * (max_sigma_par_m - min_sigma_par_m)
+
+    if region_mask is not None and np.any(region_mask):
+        region_points = np.argwhere(region_mask).astype(float)
+        projected = (region_points - frontier_position) @ e_perp
+        width_m = float(projected.max() - projected.min()) * planner._voxel_size
+    else:
+        width_m = min_sigma_perp_m * 2.0
+    sigma_perp_m = float(np.clip(width_m / 2.0, min_sigma_perp_m, max_sigma_perp_m))
+
+    return float(weight), float(sigma_parallel_m), sigma_perp_m, e_parallel, e_perp
+
+
 def save_frontier_gaussian_bev(
     planner, output_dir, name, candidates, trajectory_voxels=None, agent_voxel=None,
     agent_yaw=None, display_height=1.8, min_sigma_m=0.5, max_sigma_m=2.0,
     trajectory_arrow_stride=4, crop_padding_m=1.5, min_crop_size_m=6.0,
+    foresight_enabled=False, min_sigma_perp_m=0.25, max_sigma_perp_m=1.2,
+    foresight_max_range_m=3.0, foresight_semantic_weight=0.4, foresight_gain=0.6,
+    max_sigma_fraction_of_crop=0.35,
+    foresight_geometric_3d_weight=0.0, foresight_3d_relevant_height_m=2.2, objects=None,
+    coverage_rendering_enabled=False, coverage_height_m=2.2,
 ):
-    """Save a candidate-coloured evidence field on the same cropped BEV frame."""
+    """Save a candidate-coloured evidence field on the same cropped BEV frame.
+
+    When ``foresight_enabled`` is False (default), this reproduces the
+    original isotropic-circle field exactly. When True, each candidate's
+    field becomes a frontier-direction-aligned anisotropic Gaussian whose
+    long axis is stretched by an exploration "foresight" score (see
+    ``_foresight_anisotropic_params``).
+
+    Returns ``(output_path, candidate_weights)`` where ``candidate_weights``
+    is a list aligned with ``candidates`` -- the same weight rendered as the
+    ellipse's opacity/label text (``F{index} {weight:.2f}, {sigma_m:.1f}m``),
+    exposed here so a caller can optionally also state it in text to the
+    VLM instead of relying solely on the visual rendering.
+    """
     if not candidates:
-        return None
+        return None, []
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    bev, traversable, support = _build_planner_bev(planner, display_height)
+    bev, traversable, support = _build_planner_bev(
+        planner, display_height,
+        coverage_rendering_enabled=coverage_rendering_enabled, coverage_height_m=coverage_height_m,
+    )
     positions = [np.asarray(candidate["position"], dtype=float)[:2] for candidate in candidates]
     bev, traversable, crop_origin = _crop_bev(
         bev, traversable, support, planner, trajectory_voxels, agent_voxel, positions,
@@ -563,10 +909,40 @@ def save_frontier_gaussian_bev(
     x_grid, y_grid = np.ogrid[:bev.shape[0], :bev.shape[1]]
     candidate_info = []
     for index, candidate in enumerate(candidates, start=1):
+        raw_position = np.asarray(candidate["position"], dtype=float)[:2]
         position = _shift_voxels(candidate["position"], crop_origin)[:2]
-        weight, sigma_m = _prediction_weight_and_sigma(candidate["scores"], min_sigma_m, max_sigma_m)
-        sigma_vox = max(sigma_m / planner._voxel_size, 1e-6)
-        field = np.exp(-((x_grid - position[0]) ** 2 + (y_grid - position[1]) ** 2) / (2.0 * sigma_vox**2))
+        if foresight_enabled:
+            weight, sigma_par_m, sigma_perp_m, e_par, e_perp = _foresight_anisotropic_params(
+                planner, raw_position, candidate.get("orientation", (1.0, 0.0)),
+                candidate.get("region"), candidate["scores"], agent_voxel,
+                min_sigma_m, max_sigma_m, min_sigma_perp_m, max_sigma_perp_m,
+                max_foresight_range_m=foresight_max_range_m,
+                semantic_foresight_weight=foresight_semantic_weight,
+                foresight_gain=foresight_gain,
+                geometric_3d_weight=foresight_geometric_3d_weight,
+                foresight_3d_relevant_height_m=foresight_3d_relevant_height_m,
+                objects=objects,
+            )
+            # A high-foresight ellipse must not dominate the crop regardless
+            # of the absolute sigma range: cap its long axis to a fraction of
+            # the shorter crop dimension so it stays a directional cue rather
+            # than flooding the frame (observed in manual review: 1.9 m sigma
+            # in a small room reached past the traversable area into the
+            # unknown-space background).
+            crop_extent_m = min(bev.shape[0], bev.shape[1]) * planner._voxel_size
+            sigma_par_m = min(sigma_par_m, max_sigma_fraction_of_crop * crop_extent_m)
+            sigma_par_vox = max(sigma_par_m / planner._voxel_size, 1e-6)
+            sigma_perp_vox = max(sigma_perp_m / planner._voxel_size, 1e-6)
+            dx = x_grid - position[0]
+            dy = y_grid - position[1]
+            d_par = dx * e_par[0] + dy * e_par[1]
+            d_perp = dx * e_perp[0] + dy * e_perp[1]
+            field = np.exp(-0.5 * ((d_par / sigma_par_vox) ** 2 + (d_perp / sigma_perp_vox) ** 2))
+            sigma_m = sigma_par_m  # reported in the label; perp is visible in the ellipse shape
+        else:
+            weight, sigma_m = _prediction_weight_and_sigma(candidate["scores"], min_sigma_m, max_sigma_m)
+            sigma_vox = max(sigma_m / planner._voxel_size, 1e-6)
+            field = np.exp(-((x_grid - position[0]) ** 2 + (y_grid - position[1]) ** 2) / (2.0 * sigma_vox**2))
         candidate_info.append((position, weight, sigma_m, field, index))
 
     fig, ax = _new_bev_figure(bev)
@@ -589,7 +965,7 @@ def save_frontier_gaussian_bev(
     _draw_trajectory(ax, trajectory_voxels, 1, trajectory_arrow_stride, crop_origin)
     _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, 1, crop_origin)
     ax.text(
-        0.012, 0.012,
+        0.012, 0.028,
         "candidate color: F1..Fn | radius: heuristic uncertainty | opacity: evidence × relevance",
         transform=ax.transAxes, fontsize=5.8, color="black",
         bbox={"boxstyle": "round,pad=0.16", "fc": "white", "ec": "none", "alpha": 0.80}, zorder=20,
@@ -597,7 +973,8 @@ def save_frontier_gaussian_bev(
     output_path = output_dir / f"{name}_gaussian_bev.png"
     fig.savefig(output_path, dpi=120, pad_inches=0)
     plt.close(fig)
-    return output_path
+    candidate_weights = [info[1] for info in candidate_info]
+    return output_path, candidate_weights
 
 
 def save_bev_visualization(
@@ -610,6 +987,8 @@ def save_bev_visualization(
     semantic_support_radius_m=0.4, semantic_shape_dilation_m=0.10,
     semantic_same_class_merge_radius_m=0.55,
     semantic_display_smoothing_m=0.05,
+    coverage_rendering_enabled=False, coverage_height_m=2.2,
+    reliability_rendering_enabled=False,
 ):
     """Save a compact semantic BEV for VLM input.
 
@@ -621,7 +1000,10 @@ def save_bev_visualization(
         raise ValueError("render_resolution must be positive")
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    bev, traversable, support = _build_planner_bev(planner, display_height)
+    bev, traversable, support = _build_planner_bev(
+        planner, display_height,
+        coverage_rendering_enabled=coverage_rendering_enabled, coverage_height_m=coverage_height_m,
+    )
     semantic_instances = _prepare_semantic_instances(
         planner, objects, int(min_object_detections), relevant_classes=relevant_classes,
         max_labeled_instances=max_labeled_instances,
@@ -644,11 +1026,12 @@ def save_bev_visualization(
     _draw_object_instances(
         ax, planner, semantic_instances, 1, crop_origin,
         display_smoothing_m=float(semantic_display_smoothing_m),
+        reliability_rendering_enabled=reliability_rendering_enabled,
     )
     _draw_frontier_candidates(ax, frontier_candidates, 1, crop_origin)
     _draw_agent_pose(ax, agent_voxel, agent_yaw, planner, 1, crop_origin)
     ax.text(
-        0.012, 0.012,
+        0.012, 0.028,
         "blue: unknown | gray: observed free | green: explored free | black: obstacle | colored: semantic context",
         transform=ax.transAxes, fontsize=5.8, color="black",
         bbox={"boxstyle": "round,pad=0.16", "fc": "white", "ec": "none", "alpha": 0.80}, zorder=20,

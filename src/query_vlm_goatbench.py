@@ -21,6 +21,7 @@ def query_vlm_for_response(
     frontier_candidates=None,
     semantic_bev_path=None,
     gaussian_bev_path=None,
+    frontier_foresight_scores=None,
 ) -> Optional[Tuple[Union[SnapShot, Frontier], int, list, dict]]:
     # prepare input for vlm
     step_dict = {}
@@ -113,6 +114,15 @@ def query_vlm_for_response(
         step_dict["gaussian_bev"] = np.asarray(Image.open(gaussian_bev_path).convert("RGB"))
         step_dict["gaussian_bev_source_path"] = str(gaussian_bev_path)
 
+    # Optional text-prompt exposure of the same foresight weight already
+    # rendered as each candidate's ellipse opacity/label (see
+    # save_frontier_gaussian_bev). None (not an empty list) when the cfg
+    # flag is off, so format_explore_prompt's existing falsy check skips
+    # the text exactly as before -- this must not alter the prompt when
+    # disabled.
+    if frontier_foresight_scores is not None and len(frontier_foresight_scores) == len(active_frontiers):
+        step_dict["frontier_foresight_scores"] = list(frontier_foresight_scores)
+
     # prepare egocentric views
     if cfg.egocentric_views:
         step_dict["egocentric_views"] = rgb_egocentric_views
@@ -124,6 +134,25 @@ def query_vlm_for_response(
     step_dict["task_type"] = subtask_metadata["task_type"]
     step_dict["class"] = subtask_metadata["class"]
     step_dict["image"] = subtask_metadata["image"]
+
+    # For the self-refine identity check: a reference to the live object
+    # dict (so evidence written there persists exactly as long as the
+    # object does, across steps and subtasks) plus a key identifying what
+    # this subtask is actually verifying. "object" tasks only care about
+    # category, so any two "object" subtasks after the same class share
+    # evidence (this is what stops the same object being re-misjudged into
+    # the same wrong category every time it resurfaces). "description"/
+    # "image" tasks are about one specific GT instance, so they are keyed
+    # by that instance's goal_obj_ids and never share evidence across
+    # different instances of the same category.
+    step_dict["object_store"] = scene.objects
+    if subtask_metadata["task_type"] == "object":
+        step_dict["identity_target_key"] = ("object", subtask_metadata["class"])
+    else:
+        step_dict["identity_target_key"] = (
+            "instance",
+            tuple(sorted(subtask_metadata["goal_obj_ids"])),
+        )
 
     total_choices = len(step_dict["snapshot_imgs"]) + len(step_dict["frontier_imgs"])
     if total_choices == 0:

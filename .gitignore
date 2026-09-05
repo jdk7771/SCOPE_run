@@ -1,5 +1,7 @@
 results/
 results0/
+tools/local_secrets/
+data/scene_datasets/
 *.pt
 *.pyc
 *.xml

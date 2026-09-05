@@ -13,6 +13,13 @@ from omegaconf import OmegaConf
 import random
 import numpy as np
 import torch
+
+# torch>=2.6 defaults torch.load(weights_only=True), which rejects the
+# ultralytics YOLO-World/SAM checkpoint pickles this repo loads via
+# ultralytics.YOLOWorld / ultralytics.SAM. Restore the pre-2.6 default for
+# these trusted, official checkpoint downloads.
+_torch_load = torch.load
+torch.load = lambda *a, **kw: _torch_load(*a, **{**kw, "weights_only": kw.get("weights_only", False)})
 import math
 import time
 import json
@@ -530,6 +537,7 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                         candidate_frontiers = [item[2] for item in candidate_ranked]
                         semantic_bev_path = None
                         gaussian_bev_path = None
+                        gaussian_candidate_weights = []
                         if getattr(cfg, "structured_bev_for_vlm", True):
                             try:
                                 bev_input_dir = os.path.join(eps_potential_dir, "vlm_bev")
@@ -566,13 +574,21 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                     semantic_shape_dilation_m=float(getattr(cfg, "tsdf_bev_semantic_shape_dilation_m", 0.10)),
                                     semantic_same_class_merge_radius_m=float(getattr(cfg, "tsdf_bev_semantic_same_class_merge_radius_m", 0.55)),
                                     semantic_display_smoothing_m=float(getattr(cfg, "tsdf_bev_semantic_display_smoothing_m", 0.05)),
+                                    coverage_rendering_enabled=bool(getattr(cfg, "tsdf_bev_coverage_rendering_enabled", False)),
+                                    coverage_height_m=float(getattr(cfg, "tsdf_bev_coverage_height_m", 2.2)),
+                                    reliability_rendering_enabled=bool(getattr(cfg, "tsdf_bev_reliability_rendering_enabled", False)),
                                 )
                                 gaussian_candidates = [
-                                    {"position": frontier.position, "scores": scores}
+                                    {
+                                        "position": frontier.position,
+                                        "scores": scores,
+                                        "orientation": frontier.orientation,
+                                        "region": frontier.region,
+                                    }
                                     for _, _, frontier, scores in candidate_ranked
                                 ]
                                 if gaussian_candidates:
-                                    gaussian_bev_path = save_frontier_gaussian_bev(
+                                    gaussian_bev_path, gaussian_candidate_weights = save_frontier_gaussian_bev(
                                         tsdf_planner,
                                         bev_input_dir,
                                         f"{bev_name}_evidence",
@@ -583,6 +599,26 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                         trajectory_arrow_stride=int(getattr(cfg, "tsdf_bev_trajectory_arrow_stride", 4)),
                                         crop_padding_m=float(getattr(cfg, "tsdf_bev_crop_padding_m", 1.5)),
                                         min_crop_size_m=float(getattr(cfg, "tsdf_bev_min_crop_size_m", 6.0)),
+                                        foresight_enabled=bool(getattr(cfg, "gaussian_foresight_enabled", False)),
+                                        min_sigma_perp_m=float(getattr(cfg, "gaussian_foresight_min_sigma_perp_m", 0.25)),
+                                        max_sigma_perp_m=float(getattr(cfg, "gaussian_foresight_max_sigma_perp_m", 1.2)),
+                                        foresight_max_range_m=float(getattr(cfg, "gaussian_foresight_max_range_m", 3.0)),
+                                        foresight_semantic_weight=float(getattr(cfg, "gaussian_foresight_semantic_weight", 0.4)),
+                                        foresight_gain=float(getattr(cfg, "gaussian_foresight_gain", 0.6)),
+                                        max_sigma_fraction_of_crop=float(getattr(cfg, "gaussian_foresight_max_sigma_fraction_of_crop", 0.35)),
+                                        foresight_geometric_3d_weight=float(getattr(cfg, "gaussian_foresight_geometric_3d_weight", 0.0)),
+                                        foresight_3d_relevant_height_m=float(getattr(cfg, "gaussian_foresight_3d_relevant_height_m", 2.2)),
+                                        # Gated the same way as geometric_3d_weight=0: absent/False
+                                        # must reproduce the validated 2.7 explorability-only formula
+                                        # exactly, so passing objects=None (not scene.objects) here is
+                                        # load-bearing, not a style choice.
+                                        objects=(
+                                            scene.objects
+                                            if bool(getattr(cfg, "gaussian_foresight_semantic_3d_enabled", False))
+                                            else None
+                                        ),
+                                        coverage_rendering_enabled=bool(getattr(cfg, "tsdf_bev_coverage_rendering_enabled", False)),
+                                        coverage_height_m=float(getattr(cfg, "tsdf_bev_coverage_height_m", 2.2)),
                                     )
                                     # Keep an inspection copy beside semantic BEVs.
                                     # This is the exact Gaussian image attached to the
@@ -622,24 +658,60 @@ def main(cfg, start_ratio=0.0, end_ratio=1.0, split=1, scene_name_filter=None):
                                 frontier_candidates=candidate_frontiers,
                                 semantic_bev_path=semantic_bev_path,
                                 gaussian_bev_path=gaussian_bev_path,
+                                frontier_foresight_scores=(
+                                    gaussian_candidate_weights
+                                    if bool(getattr(cfg, "gaussian_foresight_text_prompt_enabled", False))
+                                    else None
+                                ),
                             )
                         except Exception as e:
                             logging.error(f"Exception during VLM query: {e}")
                             vlm_response = None
                         
                         if vlm_response is None:
-                            logging.error(f"Subtask id {subtask_id} invalid: query_vlm_for_response failed!")
-                            # Log diagnostic information
+                            # Guarantee physical progress this step rather
+                            # than aborting the whole subtask (the old
+                            # `break`) or silently standing still (a bare
+                            # `continue`, which can repeat the same failure
+                            # at the same position). Force-navigate to the
+                            # highest-SCOPE-score frontier instead -- it is
+                            # a real, already-ranked candidate the agent
+                            # would have seen anyway, so this is a
+                            # deterministic fallback, not a new invented
+                            # action. Only if there is truly no frontier
+                            # this step either (the pre-existing "stairs"
+                            # TSDF limitation) do we fall back to skipping
+                            # the step, since there is nowhere to send it.
+                            logging.error(f"Subtask id {subtask_id}: query_vlm_for_response failed at step {cnt_step}")
                             logging.info(f"Diagnostic info - Snapshots: {len(scene.snapshots)}, Frontiers: {len(tsdf_planner.frontiers)}")
                             logging.info(f"Scene objects: {len(scene.objects)}")
-                            break
-
-                        (
-                            max_point_choice,
-                            n_filtered_snapshots,
-                            prefiltered_object_classes,
-                            structured_decision,
-                        ) = vlm_response
+                            if candidate_frontiers:
+                                max_point_choice = candidate_frontiers[0]
+                                n_filtered_snapshots = 0
+                                prefiltered_object_classes = []
+                                structured_decision = {
+                                    "selected_candidate": "fallback_frontier",
+                                    "decision_type": "explore_frontier",
+                                    "reason": (
+                                        "VLM produced no valid decision after all retries; "
+                                        "falling back to the highest-SCOPE-score frontier "
+                                        "to guarantee forward progress this step."
+                                    ),
+                                }
+                                logging.info(
+                                    f"Falling back to highest-scoring frontier at "
+                                    f"{max_point_choice.position} after VLM retries exhausted"
+                                )
+                            else:
+                                logging.info("No frontier available for fallback either, skipping this step")
+                                continue
+                        else:
+                            (
+                                max_point_choice,
+                                n_filtered_snapshots,
+                                prefiltered_object_classes,
+                                structured_decision,
+                            ) = vlm_response
 
                         if prefiltered_object_classes:
                             relevant_object_classes = prefiltered_object_classes

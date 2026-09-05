@@ -228,24 +228,8 @@ class TSDFPlanner(TSDFPlannerBase):
         )
         db = DBSCAN(eps=cluster_eps_vox, min_samples=2).fit(frontier_areas)
         labels = db.labels_
-        # get one point from each cluster
-        valid_ft_angles = []
-        for label in np.unique(labels):
-            if label == -1:
-                continue
-            cluster = frontier_areas[labels == label]
 
-            # filter out small frontiers
-            area = len(cluster)
-            min_frontier_area_m2 = getattr(cfg, "min_frontier_area_m2", None)
-            min_frontier_area_vox = (
-                int(np.ceil(float(min_frontier_area_m2) / (self._voxel_size ** 2)))
-                if min_frontier_area_m2 is not None
-                else cfg.min_frontier_area
-            )
-            if area < min_frontier_area_vox:
-                continue
-
+        def process_cluster(cluster, valid_ft_angles):
             # convert the cluster from voxel coordinates to polar angle coordinates
             angle_cluster = np.asarray(
                 [
@@ -294,6 +278,49 @@ class TSDFPlanner(TSDFPlannerBase):
                         "region": self.get_frontier_region_map(cluster),
                     }
                 )
+
+        # get one point from each cluster
+        valid_ft_angles = []
+        min_frontier_area_m2 = getattr(cfg, "min_frontier_area_m2", None)
+        min_frontier_area_vox = (
+            int(np.ceil(float(min_frontier_area_m2) / (self._voxel_size ** 2)))
+            if min_frontier_area_m2 is not None
+            else cfg.min_frontier_area
+        )
+        # Track the largest cluster seen even if it's below the normal size
+        # bar, as a fallback: DBSCAN found real unexplored material here
+        # (frontier_areas was non-empty above), so if every cluster gets
+        # filtered out by min_frontier_area, the resulting 0 frontiers is
+        # an artifact of the size threshold, not evidence that nothing is
+        # left to explore -- it just silently forces the VLM into
+        # exploring only via memory objects that step, with no way to
+        # physically move to new territory even though some (small, but
+        # real) unexplored area is right there.
+        largest_filtered_cluster = None
+        largest_filtered_area = -1
+        for label in np.unique(labels):
+            if label == -1:
+                continue
+            cluster = frontier_areas[labels == label]
+
+            # filter out small frontiers
+            area = len(cluster)
+            if area < min_frontier_area_vox:
+                if area > largest_filtered_area:
+                    largest_filtered_area = area
+                    largest_filtered_cluster = cluster
+                continue
+
+            process_cluster(cluster, valid_ft_angles)
+
+        if len(valid_ft_angles) == 0 and largest_filtered_cluster is not None:
+            logging.info(
+                f"All {len(np.unique(labels)) - (1 if -1 in labels else 0)} frontier cluster(s) "
+                f"were below min_frontier_area_vox={min_frontier_area_vox}; keeping the largest "
+                f"one (area={largest_filtered_area}) anyway so at least one frontier is offered "
+                f"this step instead of zero."
+            )
+            process_cluster(largest_filtered_cluster, valid_ft_angles)
 
         # remove frontiers that have been changed
         filtered_frontiers = []

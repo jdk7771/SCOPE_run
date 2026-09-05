@@ -50,14 +50,35 @@ def call_openai_api(sys_prompt, contents, call_type="decision") -> Optional[str]
     while True:  # Keep trying indefinitely for rate limits
         attempt = rate_limit_retries + other_error_retries + 1
         request_start = time.perf_counter()
+        if os.environ.get("VLM_DEBUG_DUMP_REQUEST") and attempt == 1:
+            dump_path = os.environ["VLM_DEBUG_DUMP_REQUEST"]
+            with open(dump_path, "w") as f:
+                json.dump(
+                    {
+                        "model": os.environ.get("VLM_MODEL_NAME", "qwen2.5vl:32b"),
+                        "messages": message_text,
+                        "temperature": 0.7,
+                        "max_tokens": int(os.environ.get("VLM_MAX_TOKENS", "4096")),
+                        "top_p": 0.95,
+                        "frequency_penalty": 0,
+                        "presence_penalty": 0,
+                    },
+                    f,
+                )
+            logging.info(f"[VLM_DEBUG_DUMP_REQUEST] wrote real request to {dump_path} ({os.path.getsize(dump_path)} bytes)")
         try:
             completion = client.chat.completions.create(
-                # model="gpt-4o-2024-11-20", 
-                model="gemma3:27b",  # model = "deployment_name"
+                # model="gpt-4o-2024-11-20",
+                model=os.environ.get("VLM_MODEL_NAME", "qwen2.5vl:32b"),  # model = "deployment_name"
                  # model = "deployment_name"
                 messages=message_text,
                 temperature=0.7,
-                max_tokens=4096,
+                # Some OpenAI-compatible relays reject/503 requests above a
+                # max_tokens threshold well under the model's real limit
+                # (observed: ainb.space fails above ~800); override via
+                # VLM_MAX_TOKENS when such a relay is in use, default
+                # unchanged for local Ollama backends.
+                max_tokens=int(os.environ.get("VLM_MAX_TOKENS", "4096")),
                 top_p=0.95,
                 frequency_penalty=0,
                 presence_penalty=0,
@@ -154,6 +175,7 @@ def get_step_info(step, verbose=False):
 
     # Get potential scores for frontiers
     frontier_potential_scores = step.get("frontier_potential_scores", [])
+    frontier_foresight_scores = step.get("frontier_foresight_scores", [])
     semantic_bev = step.get("semantic_bev")
     gaussian_bev = step.get("gaussian_bev")
     if semantic_bev is not None:
@@ -223,6 +245,48 @@ def get_step_info(step, verbose=False):
                 f"Prefiltering snapshot: {n_prev_snapshot} -> {len(snapshot_full_imgs)}"
             )
 
+    # 3.5 drop object candidates already rejected (for this exact subtask's
+    # identity_target_key) by a prior self-refine check. Without this, the
+    # same rejected object keeps resurfacing as a top candidate step after
+    # step (and retry after retry within a step) since nothing removes it
+    # from view -- self-refine's cache then just re-rejects it for free
+    # each time, burning the whole step budget without new exploration.
+    # This costs zero extra VLM calls (it only removes candidates before
+    # the prompt is built) and should reduce wasted retries, not add any.
+    object_store = step.get("object_store")
+    identity_target_key = step.get("identity_target_key")
+    if object_store is not None and identity_target_key is not None:
+        n_before = sum(len(v) for v in snapshot_crops.values())
+        for rgb_id in list(keep_index_snapshot.keys()):
+            orig_indices = keep_index_snapshot[rgb_id]
+            object_crops = step["snapshot_imgs"][rgb_id]["object_crop"]
+            keep_mask = []
+            for orig_idx in orig_indices:
+                obj_id = object_crops[orig_idx]["obj_id"]
+                obj_record = object_store.get(obj_id)
+                verdict = (
+                    obj_record.get("identity_evidence", {}).get(identity_target_key)
+                    if obj_record is not None
+                    else None
+                )
+                keep_mask.append(verdict != "rejected")
+            if not all(keep_mask):
+                keep_index_snapshot[rgb_id] = [
+                    idx for idx, keep in zip(orig_indices, keep_mask) if keep
+                ]
+                snapshot_classes[rgb_id] = [
+                    c for c, keep in zip(snapshot_classes[rgb_id], keep_mask) if keep
+                ]
+                snapshot_crops[rgb_id] = [
+                    c for c, keep in zip(snapshot_crops[rgb_id], keep_mask) if keep
+                ]
+        n_after = sum(len(v) for v in snapshot_crops.values())
+        if verbose and n_after < n_before:
+            logging.info(
+                f"Excluded {n_before - n_after} already-rejected object candidate(s) "
+                f"for identity_target_key={identity_target_key}: {n_before} -> {n_after}"
+            )
+
     step["prefiltered_classes"] = selected_classes
     return (
         question,
@@ -237,6 +301,7 @@ def get_step_info(step, verbose=False):
         frontier_potential_scores,
         semantic_bev,
         gaussian_bev,
+        frontier_foresight_scores,
     )
 
 
@@ -248,6 +313,7 @@ def format_explore_prompt(
     snapshot_classes,
     snapshot_crops,
     frontier_potential_scores=None,
+    frontier_foresight_scores=None,
     egocentric_view=False,
     use_snapshot_class=True,
     image_goal=None,
@@ -268,6 +334,9 @@ def format_explore_prompt(
 
     if frontier_potential_scores and any(score > 0 for score in frontier_potential_scores):
         text += "Potential Score: Each frontier has an associated potential score (0.0-5.0) indicating its estimated value for exploration based on semantic richness, explorability, and goal relevance. Higher scores suggest more promising exploration directions.\n"
+
+    if frontier_foresight_scores and any(score > 0 for score in frontier_foresight_scores):
+        text += "Foresight: Each frontier also has a foresight weight, the same number driving that frontier's ellipse size/opacity in Input B below -- higher means the geometry and scene context ahead of it suggest more unexplored value. Treat it as a numeric restatement of what Input B already shows visually, not an independent signal.\n"
 
     # 2 here is the question
     text += f"Question: {question}"
@@ -313,21 +382,37 @@ def format_explore_prompt(
 
     # 4 Put frontier thumbnails immediately after both maps.  In the previous
     # order, many snapshot crops separated F labels from the map evidence.
-    text = "The following are all active frontier candidates, shown as F1..Fn in both BEV inputs and ordered by SCOPE score: \n"
-    content.append((text,))
     if len(frontier_imgs) == 0:
+        text = (
+            "There are 0 active frontier candidates this step -- none are available, so you "
+            "MUST NOT select any F-label; choose an object from the snapshots below instead.\n"
+        )
+        content.append((text,))
         content.append(("No Frontier is available\n",))
     else:
+        text = (
+            f"The following are all active frontier candidates (exactly {len(frontier_imgs)} total, "
+            f"labeled F1 through F{len(frontier_imgs)} -- do not select a label outside that range), "
+            "shown as F1..Fn in both BEV inputs and ordered by SCOPE score: \n"
+        )
+        content.append((text,))
         for i in range(len(frontier_imgs)):
+            label = f"Frontier F{i + 1}"
             if frontier_potential_scores and i < len(frontier_potential_scores):
-                potential_score = frontier_potential_scores[i]
-                content.append((f"Frontier F{i + 1} (SCOPE potential score: {potential_score:.2f}) ", frontier_imgs[i]))
-            else:
-                content.append((f"Frontier F{i + 1} ", frontier_imgs[i]))
+                label += f" (SCOPE potential score: {frontier_potential_scores[i]:.2f})"
+            if frontier_foresight_scores and i < len(frontier_foresight_scores):
+                label += f" (foresight: {frontier_foresight_scores[i]:.2f})"
+            content.append((label + " ", frontier_imgs[i]))
             content.append(("\n",))
 
     # 5 here are the snapshot images
-    text = "The followings are all the snapshots that you can choose. Following each snapshot image are the class name and image crop of each object contained in the snapshot.\n"
+    text = (
+        f"The followings are all the snapshots that you can choose (exactly {len(snapshot_imgs)} total, "
+        f"snapshot_index must be between 0 and {max(len(snapshot_imgs) - 1, 0)}). "
+        "Following each snapshot image are the class name and image crop of each object contained in the "
+        "snapshot -- object_index only ranges over the objects listed for THAT specific snapshot, and never "
+        "beyond the count stated for it below; do not invent an object_index that was not listed.\n"
+    )
     text += "Please note that the class name may not be accurate due to the limitation of the object detection model. "
     text += "So you still need to utilize the images to make the decision.\n"
     content.append((text,))
@@ -335,7 +420,10 @@ def format_explore_prompt(
         content.append(("No Snapshot is available\n",))
     else:
         for i, rgb_id in enumerate(snapshot_imgs.keys()):
-            content.append((f"Snapshot {i} ", snapshot_imgs[rgb_id]))
+            n_objs = len(snapshot_crops[rgb_id])
+            content.append(
+                (f"Snapshot {i} (contains {n_objs} object(s), valid object_index: 0-{max(n_objs - 1, 0)}) ", snapshot_imgs[rgb_id])
+            )
             for j in range(len(snapshot_crops[rgb_id])):
                 content.append(
                     (
@@ -346,11 +434,19 @@ def format_explore_prompt(
             content.append(("\n",))
 
     # 6 here is the format of the answer
-    text = "Return exactly one JSON object and no Markdown. For frontier exploration use: "
-    text += '{"selected_candidate":"F1","decision_type":"explore_frontier","subtask_status":"not_completed","reason":"...","confidence":"medium"}. '
+    text = "Return exactly one JSON object and no Markdown. "
+    if len(frontier_imgs) > 0:
+        text += "For frontier exploration use: "
+        text += '{"selected_candidate":"F1","decision_type":"explore_frontier","subtask_status":"not_completed","reason":"...","confidence":"medium"}. '
+    else:
+        text += (
+            "There are 0 frontiers this step, so the frontier-exploration format below does NOT "
+            "apply -- you must use the object format instead, even if no candidate is a perfect match. "
+        )
     text += "For an observed memory object use: "
     text += '{"selected_candidate":"object","decision_type":"go_to_memory_node","snapshot_index":0,"object_index":2,"subtask_status":"completed" or "not_completed","reason":"...","confidence":"high"}. '
-    text += "F labels are one-based. snapshot_index and object_index are zero-based. Set subtask_status to completed only when the selected visible object is sufficient; the navigation system will still verify it physically.\n"
+    text += "F labels are one-based. snapshot_index and object_index are zero-based. Set subtask_status to completed only when the selected visible object is sufficient; the navigation system will still verify it physically. "
+    text += "Double-check snapshot_index and object_index against the per-snapshot object counts stated above before answering -- an out-of-range index wastes this turn.\n"
     content.append((text,))
 
     return sys_prompt, content
@@ -535,13 +631,16 @@ def format_self_refine_prompt(question, snapshot_img, description, selected_obje
         text += f"If the exact object from the reference image is not in this snapshot, you should have chosen a frontier for further exploration.\n\n"
     else:
         raise Exception(f"Unsupported task type: {task_type}")
-    
+
+    text += "Watch out for pairs of object categories that detectors often confuse visually, e.g. a mirror mistaken for a picture/frame, a curtain mistaken for a window, a doorway mistaken for a mirror, or a heater mistaken for a bookshelf. Look for reflections, glass, frame material, and texture to tell them apart.\n\n"
+
     text += "Respond with either:\n"
-    text += "- 'CONFIRM' if this snapshot truly contains the target object and your selection is correct\n" 
+    text += "- 'CONFIRM' if this snapshot truly contains the target object and your selection is correct\n"
     text += "- 'REJECT' if this snapshot does not contain the target object (meaning you should have chosen a frontier instead)\n\n"
+    text += "If your own reasoning relies on hedging language such as 'possibly', 'probably', 'looks like', or 'might be', treat that as insufficient evidence and respond REJECT instead of CONFIRM.\n\n"
     text += "After your decision (CONFIRM or REJECT), you can provide a brief explanation on a new line."
     content.append((text,))
-    
+
     return sys_prompt, content
 
 
@@ -641,13 +740,14 @@ def explore_step(step, cfg, verbose=False):
         frontier_potential_scores,
         semantic_bev,
         gaussian_bev,
+        frontier_foresight_scores,
     ) = get_step_info(step, verbose)
-    
+
     # Log input statistics
     if verbose:
         logging.info(f"Input data: {len(snapshot_full_imgs)} snapshots, {len(frontier_imgs)} frontiers")
         logging.info(f"Potential scores: {frontier_potential_scores}")
-    
+
     sys_prompt, content = format_explore_prompt(
         question,
         egocentric_imgs,
@@ -656,6 +756,7 @@ def explore_step(step, cfg, verbose=False):
         snapshot_classes,
         snapshot_crops,
         frontier_potential_scores=frontier_potential_scores,
+        frontier_foresight_scores=frontier_foresight_scores,
         egocentric_view=step.get("use_egocentric_views", False),
         use_snapshot_class=True,
         image_goal=image_goal,
@@ -668,7 +769,7 @@ def explore_step(step, cfg, verbose=False):
     _save_vlm_input_bundle(step, cfg, sys_prompt, content, snapshot_id_mapping, snapshot_crop_mapping)
 
     retry_bound = 5
-    max_cycle_count = 3
+    max_cycle_count = 2
     max_total_iterations = 10
     total_iterations = 0
     final_response = None
@@ -817,17 +918,9 @@ def explore_step(step, cfg, verbose=False):
             
             rejection_count = choice_history.get(choice_key, 0)
             
-            if (choice_type == "snapshot" and 
+            if (choice_type == "snapshot" and
                 hasattr(cfg, 'use_self_refine') and cfg.use_self_refine):
-                
-                if rejection_count >= max_cycle_count:
-                    if verbose:
-                        logging.info(f"Choice {choice_key} has been rejected {rejection_count} times, accepting to break cycle")
-                    final_response = original_response.lower()
-                    final_reason = reason
-                    final_decision = structured_decision
-                    break
-                
+
                 snapshot_idx = int(choice_id)
                 object_idx = int(object_choice_id)
                 
@@ -843,17 +936,72 @@ def explore_step(step, cfg, verbose=False):
                     continue
                 
                 selected_object_class = snapshot_classes[snapshot_rgb_id][object_idx]
-                
+
                 task_type = step.get("task_type", "object")
                 description = step.get("question", "")
-                
-                if verbose:
-                    logging.info(f"Performing self-refinement validation for {task_type} task")
-                
-                choice_confirmed = self_refine_choice(
-                    question, snapshot_img_b64, description, selected_object_class, task_type, image_goal, verbose
-                )
-                
+
+                # Persistent identity evidence: keyed by the object's stable
+                # id (not the positional snapshot/object index, which is
+                # meaningless across steps) and by what the subtask is after
+                # (category for "object" tasks, the exact GT instance id for
+                # "description"/"image" tasks, so a rejection for one
+                # specific-instance subtask can never suppress verification
+                # of a different instance of the same category later).
+                # Lives as long as the object itself lives in object_store
+                # (scene.objects / the TSDF map) -- it is stored on the
+                # object dict, so denoising/merging naturally carries or
+                # drops it with the object, and it survives subtask
+                # boundaries instead of resetting every subtask.
+                object_store = step.get("object_store")
+                identity_target_key = step.get("identity_target_key")
+                obj_id = None
+                cached_verdict = None
+                if object_store is not None and identity_target_key is not None:
+                    orig_crop_idx = snapshot_crop_mapping[snapshot_rgb_id][object_idx]
+                    obj_id = step["snapshot_imgs"][snapshot_rgb_id]["object_crop"][orig_crop_idx]["obj_id"]
+                    obj_record = object_store.get(obj_id)
+                    if obj_record is not None:
+                        cached_verdict = obj_record.get("identity_evidence", {}).get(identity_target_key)
+
+                if rejection_count >= max_cycle_count:
+                    # This exact position has already been rejected
+                    # max_cycle_count times. Do NOT force-accept it just to
+                    # end the retry loop -- verified concretely on real
+                    # runs that this silently turns a repeatedly-confirmed-
+                    # wrong answer into the final one (e.g. a "stove"
+                    # accepted as "microwave", a "couch" accepted as
+                    # "piano", each after 3 correct self-refine rejections
+                    # of the exact same candidate). Treat it as rejected
+                    # without spending another self-refine call -- we
+                    # already have max_cycle_count real rejections as
+                    # evidence -- and fall through to the normal rejection
+                    # handling below, which drops it from the pool and
+                    # forces a different choice or frontier exploration.
+                    choice_confirmed = False
+                    if verbose:
+                        logging.info(
+                            f"Choice {choice_key} rejected {rejection_count} times -- excluding it "
+                            f"instead of force-accepting, forcing a different choice"
+                        )
+                elif cached_verdict is not None:
+                    choice_confirmed = cached_verdict == "confirmed"
+                    if verbose:
+                        logging.info(
+                            f"Reusing persistent identity evidence for object {obj_id} / {identity_target_key}: {cached_verdict}"
+                        )
+                else:
+                    if verbose:
+                        logging.info(f"Performing self-refinement validation for {task_type} task")
+
+                    choice_confirmed = self_refine_choice(
+                        question, snapshot_img_b64, description, selected_object_class, task_type, image_goal, verbose
+                    )
+
+                if object_store is not None and identity_target_key is not None and obj_id in object_store:
+                    object_store[obj_id].setdefault("identity_evidence", {})[identity_target_key] = (
+                        "confirmed" if choice_confirmed else "rejected"
+                    )
+
                 if choice_confirmed:
                     if verbose:
                         logging.info(f"Self-refine confirmed snapshot choice")
@@ -865,7 +1013,37 @@ def explore_step(step, cfg, verbose=False):
                     choice_history[choice_key] = rejection_count + 1
                     if verbose:
                         logging.info(f"Self-refine rejected choice (count: {choice_history[choice_key]}), retrying...")
-                    
+
+                    # Drop this exact candidate from the pool before the next
+                    # retry within this same step. Without this, a candidate
+                    # that was just freshly rejected (or that already carried
+                    # a "rejected" identity-cache verdict from an earlier
+                    # step/subtask) stays visible in `content`, and the VLM
+                    # can simply re-propose it on the very next attempt --
+                    # wasting a retry on an answer already known to be wrong
+                    # instead of being forced to look elsewhere. Rebuilding
+                    # `content` here costs zero extra VLM calls
+                    # (format_explore_prompt is a pure local prompt builder);
+                    # it only shrinks what the next attempt is shown.
+                    del snapshot_classes[snapshot_rgb_id][object_idx]
+                    del snapshot_crops[snapshot_rgb_id][object_idx]
+                    del snapshot_crop_mapping[snapshot_rgb_id][object_idx]
+                    _, content = format_explore_prompt(
+                        question,
+                        egocentric_imgs,
+                        frontier_imgs,
+                        snapshot_full_imgs,
+                        snapshot_classes,
+                        snapshot_crops,
+                        frontier_potential_scores=frontier_potential_scores,
+                        frontier_foresight_scores=frontier_foresight_scores,
+                        egocentric_view=step.get("use_egocentric_views", False),
+                        use_snapshot_class=True,
+                        image_goal=image_goal,
+                        semantic_bev=semantic_bev,
+                        gaussian_bev=gaussian_bev,
+                    )
+
                     if choice_history[choice_key] == 1:
                         additional_instruction = f"\n\nNote: Please carefully consider your choice. If the target object is not clearly visible in any snapshot, consider choosing a frontier for further exploration."
                     elif choice_history[choice_key] == 2:

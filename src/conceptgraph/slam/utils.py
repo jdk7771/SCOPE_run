@@ -342,7 +342,7 @@ def merge_obj2_into_obj1(
     extend_attributes = ["class_id"]
     add_attributes = ["num_detections"]
     skip_attributes = ["id", "class_name"]  # 'inst_color' just keeps obj1's
-    custom_handled = ["pcd", "bbox", "clip_ft", "conf", "image", "image_crop"]
+    custom_handled = ["pcd", "bbox", "clip_ft", "conf", "image", "image_crop", "identity_evidence"]
 
     # Check for unhandled keys and throw an error if there are
     all_handled_keys = set(
@@ -402,6 +402,16 @@ def merge_obj2_into_obj1(
     if "image_crop" in obj1 and "image_crop" in obj2:
         if obj1["conf"] < obj2["conf"]:
             obj1["image_crop"] = obj2["image_crop"]
+
+    # Merge self-refine identity evidence (see src/eval_utils_gpt_goatbench.py):
+    # union both objects' evidence so no verdict is lost when two tracked
+    # objects turn out to be the same physical object; obj1 (the surviving
+    # identity) wins on key conflicts since it is the one callers keep
+    # looking up afterward.
+    if "identity_evidence" in obj1 or "identity_evidence" in obj2:
+        merged_evidence = dict(obj2.get("identity_evidence", {}))
+        merged_evidence.update(obj1.get("identity_evidence", {}))
+        obj1["identity_evidence"] = merged_evidence
 
     # Update confidence by taking the maximum
     obj1["conf"] = max(obj1["conf"], obj2["conf"])

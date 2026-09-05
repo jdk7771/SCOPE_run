@@ -33,6 +33,7 @@ main
 `-- feat/structured-bev-tsdf05cm
     `-- feat/metric-frontier-readable-bev
         `-- feat/semantic-bev-dedupe-smoothing
+            `-- feat/3d-spatial-foresight
 ```
 
 | Branch | Role | When to use it |
@@ -43,8 +44,9 @@ main
 | `feat/structured-bev-tsdf05cm` | First structured-BEV decision branch. It adds semantic BEV and Gaussian frontier-evidence BEV images to the high-level VLM prompt, uses structured JSON decisions, and keeps SCOPE TSDF planning/execution underneath. Early runs used top-3 frontier candidates. | Use to isolate the effect of adding HSGM-style structured BEV context on top of 5 cm TSDF. |
 | `feat/metric-frontier-readable-bev` | Main readable-BEV branch. It keeps 5 cm TSDF, changes frontier thresholds to metric units, makes semantic/Gaussian BEVs share the same crop and coordinates, validates semantic footprints against TSDF support, and exposes all valid frontiers to the VLM when `structured_bev_max_frontiers: 0`. | Use as the main all-frontiers structured-BEV experiment branch. Existing reports show higher success than `main`, `baseline/fix-tsdf05cm`, and the top-3 structured-BEV branch on the matched 278-task GOAT-Bench split. |
 | `feat/semantic-bev-dedupe-smoothing` | Readability follow-up to `feat/metric-frontier-readable-bev`. It deduplicates nearby same-class ConceptGraph tracks and adds display-only smoothing to TSDF-supported semantic footprints. It does not replace the planner or change the source TSDF/object mask. | Use when inspecting or rerunning the readable-BEV method with cleaner semantic instance rendering. |
+| `feat/3d-spatial-foresight` | 3D foresight follow-up to `feat/semantic-bev-dedupe-smoothing`. It adds a frontier-conditioned anisotropic Gaussian evidence field (geometric + semantic blend, `gaussian_foresight_*`), a coverage/reliability-aware BEV render (`tsdf_bev_coverage_rendering_enabled`), and several decision-loop bug fixes: excluding already-rejected candidates from re-proposal, a corrected self-refine cycle-breaker (a repeatedly-rejected answer is no longer force-accepted), explicit object/frontier index ranges in the prompt, and a highest-score-frontier fallback when the VLM produces no valid decision. See [`README_CN.md`](README_CN.md) for usage. | Use as the current main experiment branch for the 3D-foresight ablation. |
 
-GitHub now keeps only these six branches:
+GitHub now keeps only these seven branches:
 
 ```text
 main
@@ -53,6 +55,7 @@ feat/batch-frontier-potential-scoring
 feat/structured-bev-tsdf05cm
 feat/metric-frontier-readable-bev
 feat/semantic-bev-dedupe-smoothing
+feat/3d-spatial-foresight
 ```
 
 Active server worktrees on 2026-08-05:

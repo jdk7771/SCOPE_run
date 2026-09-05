@@ -38,6 +38,7 @@ main
 `-- feat/structured-bev-tsdf05cm
     `-- feat/metric-frontier-readable-bev
         `-- feat/semantic-bev-dedupe-smoothing
+            `-- feat/3d-spatial-foresight
 ```
 
 | 分支 | 实验结果对应核心代码 ref | 定位 | 是否推荐作为主结果 |
@@ -48,6 +49,7 @@ main
 | `feat/structured-bev-tsdf05cm` | `1623bd9` | 初版 structured-BEV/top-3 frontier 过程分支。 | 历史机制对照 |
 | `feat/metric-frontier-readable-bev` | `f36b247` | readable-BEV 主实验：米制 frontier、共坐标 BEV、TSDF 支撑语义 footprint、全部 frontier 输入 VLM。 | **当前验证最充分的主方法** |
 | `feat/semantic-bev-dedupe-smoothing` | `81bf1e2` | readable-BEV 后续清理：同类实例去重、显示平滑。 | 最终代码候选，但还缺 split 2/3 验证 |
+| `feat/3d-spatial-foresight` | `39ca9a4` | 在 dedupe-smoothing 基础上加 3D 前瞻机制（各向异性 Gaussian 证据场 + coverage/reliability BEV）+ 修复候选池复用、self-refine 强制接受、索引幻觉、0-frontier 兜底等多个真实 bug。 | **当前主实验分支，见第 11 节** |
 
 注：GitHub 分支上的最新提交可能只是 README/文档更新；实验复现和结果归属以上表中的核心代码 ref 为准。
 
@@ -221,3 +223,67 @@ batch 方式：同一步新 frontier 合成一次 VLM 请求，返回多个 F_i 
 2. 把 `feat/semantic-bev-dedupe-smoothing` 作为最终代码候选继续跑 split 2/3。
 3. `feat/batch-frontier-potential-scoring` 只作为小实验保留，指标已经归档。
 4. 若要正式采用 dedupe+smoothing，需要补齐与 metric readable-BEV 相同的 split 1/2/3 对照。
+
+## 11. `feat/3d-spatial-foresight` 做了什么、怎么用
+
+### 11.1 这个分支加了什么
+
+在 `feat/semantic-bev-dedupe-smoothing` 的基础上，这个分支做了两类改动：
+
+**A. 3D 前瞻机制（`gaussian_foresight_*` / `tsdf_bev_*`，默认开启，可整体关闭）**
+
+- 每一步高层 VLM 决策前，除了原有的两张 BEV，额外给每个 frontier 候选算一个"前瞻分数"（foresight score）：由该 frontier 前方的几何未探索比例（复用已有的 occupancy grid，不需要新的 VLM 调用）和语义可探索性评分（复用已有的 `explorability` VLM 打分）加权得到。
+- Gaussian evidence BEV 上的椭圆改成各向异性的：沿 frontier 探索方向拉伸，长轴由前瞻分数调制，而不是原来固定的各向同性圆形。
+- BEV 渲染的"已知/未知"从二值折叠改成按 `coverage_height_m` 计算的覆盖率渲染；语义 BEV 的物体透明度/描边也按检测次数做了可靠性调制。
+- 全程零新增 VLM 调用——前瞻分数和 coverage 渲染都是复用已有信号算出来的，不额外增加请求数或prompt里的图片数量。
+
+**B. 决策循环的几个真实 bug 修复（不依赖 3D 前瞻机制本身，是否开启 3D 前瞻都生效）**
+
+这几个 bug 是在分析 gpt-4o 全量 278 题结果时，通过直接看失败案例的图片/log 定位到的：
+
+1. **候选池复用**：VLM 曾经拒绝过的物体，之后又被重复提议（同一个 subtask 内、以及跨 subtask 复用 `identity_evidence` 缓存两种情况都有），部分场景重复次数高达 30-85 次以上，纯粹浪费 VLM 调用。现在在 prefiltering 阶段和单步内被拒绝后都会把该候选从池子里剔除。
+2. **self-refine 循环破坏器误接受**：`max_cycle_count`（连续被拒绝达到这个次数后）原来的逻辑是"强制接受"这个已经被反复否决的答案，而不是当作拒绝处理——用真实图片核实过至少 2 个具体案例（一个把炉灶答成"microwave"，一个把沙发答成"piano"），确认这是真 bug，不是 VLM 判断本身的问题。现在改成到达上限就跳过 self-refine 调用、按拒绝处理，走正常的排除+提示逻辑。
+3. **索引幻觉**：VLM 有时会选一个不存在的 snapshot/frontier 编号（尤其是 0 个 frontier 时仍然套用固定的 JSON 模板选出 "F1"）。现在 prompt 里显式写出每个 snapshot 的物体数量和合法 index 范围，0 个 frontier 时也会显式提示"不能选任何 F 编号"并跳过 JSON 示例里的 frontier 格式说明。
+4. **无有效决策时的兜底**：VLM 重试多次仍拿不到合法输出时，原来会直接 `break` 掉整个 subtask（这也是"1 步就结束的 subtask"偏多的原因）。现在改成用 SCOPE 分数最高的 frontier 强制推进一步，只有连 frontier 都没有时才跳过这一步（对应少数"楼梯"场景，TSDF 在楼梯处连通域被切断，是已知的算法局限，未在此分支修复）。
+
+### 11.2 用哪个 config
+
+分支里只保留两个"最终版"config，其余调参/冒烟测试用的中间版本已经清理：
+
+| config | 用途 |
+| --- | --- |
+| `cfg/eval_goatbench_2d3dfusion_final.yaml` | 本地模型（默认走 `src/const.py` 里的本地 Ollama 端点） |
+| `cfg/eval_goatbench_2d3dfusion_final_gpt4o.yaml` | 真实 gpt-4o（走 OpenAI 官方 API，见下面的环境变量） |
+
+两个 config 内容完全一致，只有 `exp_name` 不同——3D 前瞻机制和上面的 bug 修复都在代码里，跟用哪个 VLM 后端无关。想临时关掉 3D 前瞻机制、只保留 bug 修复本身，把 config 里的 `gaussian_foresight_enabled` 改成 `false` 即可（`structured_bev_for_vlm` 建议保留 `true`，否则退化成完全没有 BEV 图的更早期形态）。
+
+### 11.3 怎么跑
+
+**本地模型（默认，免费）**：
+
+```bash
+python run_goatbench_evaluation.py -cf cfg/eval_goatbench_2d3dfusion_final.yaml
+```
+
+默认打 `http://localhost:11435/v1`（本地 Ollama server），可以用 `OLLAMA_ENDPOINT` 环境变量覆盖端口/地址，用 `VLM_MODEL_NAME` 指定模型（例如 `qwen2.5vl:32b`）。
+
+**真实 gpt-4o（官方 OpenAI API，不是中转/relay）**：
+
+```bash
+USE_REAL_OPENAI=1 OPENAI_API_KEY=<你的key> \
+python run_goatbench_evaluation.py -cf cfg/eval_goatbench_2d3dfusion_final_gpt4o.yaml
+```
+
+不设置 `REAL_OPENAI_BASE_URL` 时默认打 `https://api.openai.com/v1`（官方地址）；如果要换成 OpenAI 兼容的中转/reseller 端点，才需要额外设置这个变量指向对方地址。API key 不要写进 config 或提交到仓库，建议放进本地 `.env` 或 `tools/local_secrets/`（已在 `.gitignore` 里）。
+
+**多卡切分**：两个脚本都支持 `--start_ratio`/`--end_ratio`（按任务列表比例切分，跑完自动聚合结果），也支持 `--scene_name`/`--split` 只跑指定场景。例如 4 卡各跑 1/4：
+
+```bash
+for g in 0 1 2 3; do
+  start=$(python3 -c "print($g/4)"); end=$(python3 -c "print(($g+1)/4)")
+  CUDA_VISIBLE_DEVICES=$g python run_goatbench_evaluation.py \
+    -cf cfg/eval_goatbench_2d3dfusion_final.yaml \
+    --start_ratio $start --end_ratio $end &
+done
+wait
+```
