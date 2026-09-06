@@ -10,14 +10,19 @@
 
 ## 结果
 
-| 目标类型 | Tasks | Snapshot success | Distance success | Snapshot SPL（见下方说明） | Distance SPL（见下方说明） |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| **总体** | **278** | **33.09%** | **57.55%** | 24.90% | 41.31% |
-| description | 91 | — | **41.76%** | — | — |
-| image | 88 | — | **63.64%** | — | — |
-| object | 99 | — | **66.67%** | — | — |
+| 总体指标 | 结果 |
+| --- | ---: |
+| Tasks | **278** |
+| Snapshot success | **33.09%** |
+| Distance success | **57.55%** |
+| Snapshot SPL（见下方说明） | 24.90% |
+| Distance SPL（见下方说明） | 41.31% |
 
-“—”表示本次未按该目标类型单独汇总该指标。
+| 目标类型 | Tasks | Distance success |
+| --- | ---: | ---: |
+| description | 91 | **41.76%** |
+| image | 88 | **63.64%** |
+| object | 99 | **66.67%** |
 
 ## 运行时间
 
